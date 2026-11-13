@@ -107,6 +107,9 @@ export default {
     smallArea: 60,
     smallAreaTarget: 160,
     smallAreaMaxZoom: 7,
+    // Countries too big to zoom out for: still shaded, but ignored when deciding whether to zoom.
+    // (Their regions, e.g. RU-SAK, still count.)
+    fitIgnore: ['RUS'],
   },
 
   // Map colours. Any CSS colour works.

@@ -248,8 +248,9 @@ function featureBox(f) {
 
 // Bounds of a type's countries plus its point, picking whichever side of the antimeridian is tighter.
 // Each area of a type (countries, regions) as [w, s, e, n], plus a tiny box for its dot.
+const fitCountries = (type) => expandIso([...type.core, ...type.fringe]).filter((iso) => !(V.fitIgnore ?? []).includes(iso));
 function boxesFor(type, regions = []) {
-  const boxes = [...expandIso([...type.core, ...type.fringe]).map((iso) => state.countryBoxes.get(iso)), ...regions.map(featureBox)]
+  const boxes = [...fitCountries(type).map((iso) => state.countryBoxes.get(iso)), ...regions.map(featureBox)]
     .filter(Boolean)
     .map((box) => ((box.a[2] - box.a[0]) > 180 ? box.b : box.a));
   return boxes;
@@ -259,7 +260,7 @@ function boundsFor(type, regions = []) {
   let a = [type.lon, type.lat, type.lon, type.lat];
   const lonB = type.lon < 0 ? type.lon + 360 : type.lon;
   let b = [lonB, type.lat, lonB, type.lat];
-  const boxes = [...expandIso([...type.core, ...type.fringe]).map((iso) => state.countryBoxes.get(iso)), ...regions.map(featureBox)];
+  const boxes = [...fitCountries(type).map((iso) => state.countryBoxes.get(iso)), ...regions.map(featureBox)];
   for (const box of boxes) {
     if (!box) continue;
     a = union(a, box.a); b = union(b, box.b);
@@ -666,7 +667,12 @@ function fitIfNeeded(bounds, boxes = [], dot = null) {
   const onScreen = (r) => r.x1 >= view.x0 && r.x0 <= view.x1 && r.y1 >= view.y0 && r.y0 <= view.y1;
   const cam = map.cameraForBounds(bounds, { padding });
   if (!cam) return;
-  const allVisible = boxes.length ? boxes.every((b) => onScreen(screenRect(b))) : false;
+  // No areas left to fit (e.g. only Russia): just make sure the dot is in view.
+  if (!boxes.length) {
+    if (dot && !onScreen(screenRect([dot[0], dot[1], dot[0], dot[1]]))) map.easeTo({ center: [dot[0] + shift, dot[1]], duration: 1000 });
+    return;
+  }
+  const allVisible = boxes.every((b) => onScreen(screenRect(b)));
 
   if (!allVisible) {
     if (cam.zoom < map.getZoom()) map.easeTo({ ...cam, duration: 1200 });
