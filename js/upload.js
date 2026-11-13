@@ -1,6 +1,7 @@
 // Upload page: drop an image on a type → shrunk to JPG, renamed to the type ID,
 // committed to the repository's images/ folder (or downloaded if no token is set).
-import CONFIG from './config.js';
+// config.js is loaded with the same cache-busting query as this file.
+const CONFIG = (await import(`./config.js${new URL(import.meta.url).search}`)).default;
 
 const $ = (id) => document.getElementById(id);
 const GH = CONFIG.github;

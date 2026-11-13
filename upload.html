@@ -59,6 +59,6 @@
   <ul class="up-list" id="list"></ul>
   <div id="message" class="message" hidden></div>
 
-  <script type="module" src="js/upload.js"></script>
+  <script type="module">import(`./js/upload.js?v=${Date.now()}`);</script>
 </body>
 </html>

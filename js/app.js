@@ -1,5 +1,6 @@
 import * as maplibregl from '../lib/maplibre-gl.mjs';
-import CONFIG from './config.js';
+// config.js is loaded with the same cache-busting query as this file.
+const CONFIG = (await import(`./config.js${new URL(import.meta.url).search}`)).default;
 
 const T = CONFIG.theme;
 const V = { ...CONFIG.view };
