@@ -80,11 +80,10 @@ button { font: inherit; color: inherit; }
   width: var(--size); height: var(--size); border-radius: 50%;
   display: grid; place-items: center; cursor: pointer;
   background: var(--node); color: var(--space);
-  border: 2px solid var(--space); box-shadow: 0 0 0 1px var(--node);
-  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  border: 1.5px solid var(--space);
+  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
 }
 /* No transform/transition on .cluster itself: the map moves markers with transform, and a transition makes them lag. */
-.cluster:hover { box-shadow: 0 0 0 2px var(--accent); }
 
 /* ── The open type's dots ─────────────────────────────────
    All its dots are filled in the accent colour; the one whose name is shown also gets a ring. */
@@ -98,9 +97,12 @@ button { font: inherit; color: inherit; }
   z-index: 4;
 }
 
+/* An open stand-out type keeps its black middle and gets the accent ring */
+.dot-selected.standout { width: 16px; height: 16px; background: #0d0c0b; border: 2px solid var(--node); }
+
 /* Stand-out types (config.js → standout), e.g. T000: never clustered, inverted colours */
 .dot-standout {
-  width: 14px; height: 14px; padding: 0; border-radius: 50%; cursor: pointer;
+  width: 16px; height: 16px; padding: 0; border-radius: 50%; cursor: pointer;
   background: #0d0c0b; border: 2px solid var(--node);
   z-index: 3;
 }

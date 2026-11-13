@@ -83,7 +83,7 @@ export default {
   // Climate underlays (built by tools/build_climate.py from WorldClim 2.1).
   climate: {
     start: 'none',           // 'none', 'hdd' or 'continentality'
-    opacity: 0.85,
+    opacity: 1,
     folder: 'data/climate/',
     layers: {
       hdd: { label: 'Heating', title: 'Heating degree days (base 18 °C, per year)', low: '0', high: '10 000+' },

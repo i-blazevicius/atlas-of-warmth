@@ -273,15 +273,48 @@ function visibleTypes() {
     (!state.onlyStories || t.cases.length) && (!state.onlyImages || state.images?.has(t.id)));
 }
 
+// Raw dot positions of a type: one per local name (types without names keep their centre dot).
+const rawDots = (t) => (t.names.length ? t.names.map((n, i) => [i, nameDot(t, n)]) : [[-1, [t.lon, t.lat]]]);
+
+// Final dot positions for every type, worked out once for the whole map so that a dot sits in the
+// same place whether it is clustered, open or filtered. Dots closer than DOT_GAP degrees to each
+// other (e.g. two types placed in the middle of the same region) are fanned out in a small ring.
+const DOT_GAP = 0.3;
+const dotPositions = new Map();   // "T014:0" -> [lon, lat]
+function computeDotPositions() {
+  dotPositions.clear();
+  const all = [];
+  for (const t of state.types) for (const [n, c] of rawDots(t)) all.push({ key: `${t.id}:${n}`, c });
+  const groups = [];
+  for (const d of all) {
+    const near = groups.find((g) => {
+      const [lon, lat] = g[0].c;
+      return Math.abs(d.c[1] - lat) < DOT_GAP && Math.abs(d.c[0] - lon) * Math.cos((lat * Math.PI) / 180) < DOT_GAP;
+    });
+    if (near) near.push(d); else groups.push([d]);
+  }
+  for (const g of groups) {
+    if (g.length < 2) { dotPositions.set(g[0].key, g[0].c); continue; }
+    const lon = g.reduce((a, d) => a + d.c[0], 0) / g.length, lat = g.reduce((a, d) => a + d.c[1], 0) / g.length;
+    const r = 0.25 + 0.04 * g.length; // degrees
+    g.forEach((d, i) => {
+      const a = (2 * Math.PI * i) / g.length - Math.PI / 2;
+      dotPositions.set(d.key, [lon + (r * Math.cos(a)) / Math.cos((lat * Math.PI) / 180), lat + r * Math.sin(a)]);
+    });
+  }
+  state.dotGroups = groups.filter((g) => g.length > 1).map((g) => g.map((d) => d.key));
+}
+
 function dotFeatures(t) {
-  // One dot per local name (types without names keep their single centre dot).
-  const dots = t.names.length ? t.names.map((n, i) => [i, nameDot(t, n)]) : [[-1, [t.lon, t.lat]]];
-  return dots.map(([n, coords]) => ({ type: 'Feature', properties: { id: t.id, n }, geometry: { type: 'Point', coordinates: coords } }));
+  return rawDots(t).map(([n, c]) => ({
+    type: 'Feature', properties: { id: t.id, n },
+    geometry: { type: 'Point', coordinates: dotPositions.get(`${t.id}:${n}`) ?? c },
+  }));
 }
 // The open type's dots are kept out of the clusters (drawn from their own source) so they stay visible.
 function selectedCollection() {
   const t = state.byId.get(state.selected);
-  return { type: 'FeatureCollection', features: t ? spreadDots(dotFeatures(t)) : [] };
+  return { type: 'FeatureCollection', features: t ? dotFeatures(t) : [] };
 }
 
 const isStandout = (id) => CONFIG.standout?.ids?.includes(id);
@@ -298,28 +331,7 @@ function featureCollection() {
     if (t.id === state.selected || isStandout(t.id)) continue;
     features.push(...dotFeatures(t));
   }
-  return { type: 'FeatureCollection', features: spreadDots(features) };
-}
-
-function spreadDots(features) {
-  // Dots placed on exactly the same spot (e.g. several names in one country) are fanned out
-  // in a small ring, so they separate when zoomed in.
-  const groups = new Map();
-  for (const f of features) {
-    const key = f.geometry.coordinates.map((v) => v.toFixed(3)).join(',');
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(f);
-  }
-  for (const group of groups.values()) {
-    if (group.length < 2) continue;
-    const [lon, lat] = group[0].geometry.coordinates;
-    const r = 0.25 + 0.04 * group.length; // degrees
-    group.forEach((f, i) => {
-      const a = (2 * Math.PI * i) / group.length;
-      f.geometry.coordinates = [lon + (r * Math.cos(a)) / Math.cos((lat * Math.PI) / 180), lat + r * Math.sin(a)];
-    });
-  }
-  return features;
+  return { type: 'FeatureCollection', features };
 }
 
 // ── Map ────────────────────────────────────────────────────
@@ -470,7 +482,7 @@ function updateClusters() {
       el.type = 'button';
       el.className = 'cluster';
       el.textContent = p.point_count;
-      el.style.setProperty('--size', `${Math.round(24 + Math.sqrt(p.point_count) * 5)}px`);
+      el.style.setProperty('--size', `${Math.round(21 + Math.sqrt(p.point_count) * 4.4)}px`);
       el.setAttribute('aria-label', `${p.point_count} types, zoom in`);
       const coords = f.geometry.coordinates;
       el.addEventListener('click', (e) => { e.stopPropagation(); openCluster(key, coords); });
@@ -569,7 +581,7 @@ function refreshDots() {
   selectedMarkers = selectedCollection().features.map((f) => {
     const el = document.createElement('button');
     el.type = 'button';
-    el.className = 'dot-selected';
+    el.className = `dot-selected${isStandout(f.properties.id) ? ' standout' : ''}`;
     el.dataset.n = f.properties.n;
     const t = state.byId.get(f.properties.id);
     el.title = displayName(t, f.properties.n).name;
@@ -592,7 +604,7 @@ async function switchName(i, { fly = true } = {}) {
   const id = type.id;
   const regions = await regionFeatures(regionsOf(n.where), 'name');
   if (state.selected !== id || state.nameIndex !== i) return;
-  const [lon, lat] = nameDot(type, n);
+  const [lon, lat] = dotPositions.get(`${type.id}:${i}`) ?? nameDot(type, n);
   const area = { lon, lat, core: countriesOf(n.where), fringe: [] };
   fitIfNeeded(boundsFor(area, regions), boxesFor(area, regions), [lon, lat]);
 }
@@ -622,7 +634,7 @@ async function select(id, { fly = true, name = null } = {}) {
   map.getSource('regions').setData({ type: 'FeatureCollection', features: regions });
   if (fly && V.onClick === 'fit') {
     const n = type.names[state.nameIndex];
-    fitIfNeeded(boundsFor(type, regions), boxesFor(type, regions), n ? nameDot(type, n) : [type.lon, type.lat]);
+    fitIfNeeded(boundsFor(type, regions), boxesFor(type, regions), dotPositions.get(`${type.id}:${state.nameIndex}`) ?? [type.lon, type.lat]);
   }
 }
 
@@ -914,6 +926,7 @@ async function start() {
   }
   if (namesCSV) parseNames(namesCSV);
   computeCountryBoxes(countries);
+  computeDotPositions();
   showMessage('');
   updateCount();
   loadImageList();
