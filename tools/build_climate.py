@@ -1,13 +1,12 @@
 """
-Builds the climate underlays in data/climate/ from WorldClim 2.1 bioclimatic variables (10 arc-minutes).
-  python3 tools/build_climate.py /path/to/wc2.1_10m_bio
+Builds the climate underlays in data/climate/ from WorldClim 2.1 monthly average temperature (10 arc-minutes).
+  python3 tools/build_climate.py /path/to/wc2.1_10m_tavg
 Needs: pip install tifffile imagecodecs numpy pillow
 Source: Fick, S.E. & Hijmans, R.J. (2017) WorldClim 2. https://www.worldclim.org  (CC BY 4.0), means 1970–2000.
 
-Heating degree days (base 18 °C) are ESTIMATED: each cell's year is modelled as a sine curve through its
-annual mean (BIO1) with an amplitude from the warmest- and coldest-quarter means (BIO10, BIO11); HDD is the sum
-over 365 days of max(0, 18 − T). Day-to-day swings are ignored, so mild-winter places come out a little low.
-Continentality is Conrad's index: K = 1.7·A / sin(latitude + 10°) − 14, A = annual range of monthly means.
+Heating degree days, base 18 °C, from the 12 monthly means using Hitchin's formula (CIBSE), which allows for
+day-to-day swings around each monthly mean:  HDD_month = n·(Tb − Tm) / (1 − e^(−k·(Tb − Tm))), k = 0.71.
+Continentality is Conrad's index: K = 1.7·A / sin(latitude + 10°) − 14, A = warmest minus coldest monthly mean.
 0 ≈ fully maritime, 100 ≈ extremely continental.
 """
 import os, sys, json
@@ -20,26 +19,29 @@ BASE = 18.0
 WIDTH = 2048            # output width; height follows (Web Mercator, ±85.05°)
 MAX_LAT = 85.0511287798
 
-def band(n):
-    a = tifffile.imread(os.path.join(SRC, f'wc2.1_10m_bio_{n}.tif')).astype('float64')
+def month(m):
+    a = tifffile.imread(os.path.join(SRC, f'wc2.1_10m_tavg_{m:02d}.tif')).astype('float64')
     a[a < -1e30] = np.nan
     return a
 
-mean, warm, cold = band(1), band(10), band(11)
-# A quarter-mean of a sine curve is ~0.9003 of its peak (sin(π/4)/(π/4)).
-amp = (warm - cold) / 2 / 0.9003
-days = np.cos(2 * np.pi * (np.arange(365) + 0.5) / 365)
-hdd = np.zeros_like(mean)
-for c in np.array_split(days, 13):  # in chunks to keep memory low
-    t = mean[..., None] + amp[..., None] * c
-    hdd += np.clip(BASE - t, 0, None).sum(-1)
-hdd[np.isnan(mean)] = np.nan
+DAYS = [31, 28.25, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+K_HITCHIN = 0.71
+months = [month(m) for m in range(1, 13)]
+hdd = np.zeros_like(months[0])
+for t, n in zip(months, DAYS):
+    d = BASE - t
+    with np.errstate(divide='ignore', invalid='ignore', over='ignore'):
+        v = n * d / (1 - np.exp(-K_HITCHIN * d))
+    v[np.abs(d) < 1e-6] = n / K_HITCHIN
+    hdd += v
+hdd[np.isnan(months[0])] = np.nan
 
-h, w = mean.shape
+h, w = hdd.shape
 lat = 90 - (np.arange(h) + 0.5) * 180 / h
-annual_range = 2 * amp
+stack = np.stack(months)
+annual_range = np.nanmax(stack, 0) - np.nanmin(stack, 0)
 k = 1.7 * annual_range / np.sin(np.radians(np.abs(lat)[:, None] + 10)) - 14
-k[np.isnan(mean)] = np.nan
+k[np.isnan(months[0])] = np.nan
 
 def spread(grid, steps=4):
     """Extend values a few cells out to sea, so the crisp ocean layer drawn on top hides the blocky coast."""

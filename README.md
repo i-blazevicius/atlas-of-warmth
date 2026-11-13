@@ -43,11 +43,11 @@ To apply one look to all images without editing them, change `--image-filter` in
 ## Climate underlays
 
 Switch them in the control panel. Both are built by `tools/build_climate.py` from WorldClim 2.1
-(10-minute bioclimatic variables, 1970–2000 means, CC BY 4.0 – credit shown on the map):
+(10-minute monthly average temperatures, 1970–2000 means, CC BY 4.0 – credit shown on the map):
 
 - **Heating** – heating degree days per year, base 18 °C: how much heating a year's weather asks for.
-  Estimated from each place's annual, warmest-quarter and coldest-quarter mean temperatures (a sine-shaped year),
-  so mild-winter places come out slightly low. Dark = cold, pale = little or no heating needed.
+  From the 12 monthly mean temperatures with Hitchin's formula (allows for day-to-day swings).
+  Dark = cold, pale = little or no heating needed.
 - **Continental** – Conrad's continentality index (0 maritime → 100 extremely continental), from the
   summer–winter range corrected for latitude.
 

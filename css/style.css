@@ -9,7 +9,9 @@
   --ink: #f4e9dc;               /* main text */
   --ink-dim: #a39888;           /* secondary text */
   --ink-faint: #6b6157;         /* IDs, coordinates */
-  --accent: #8d9dc9;            /* soft blue (earlier: ember orange #e8662a) */
+  --accent: #8d9dc9;            /* soft blue for interface accents (earlier: ember orange #e8662a) */
+  --node: #f4e9dc;              /* map dots and clusters: off-white reads on every climate palette */
+  --area: #b8aea2;              /* type area shading in the legend (map value: theme.core in config.js) */
   --panel-bg: rgba(20, 18, 16, 0.92);
   --panel-line: #3a342e;
   --panel-width: 380px;
@@ -56,8 +58,8 @@ button { font: inherit; color: inherit; }
 .legend { display: flex; flex-direction: column; gap: 6px; color: var(--ink-dim); padding-top: 10px; border-top: 1px solid var(--panel-line); }
 .legend span { display: flex; align-items: center; gap: 6px; }
 .swatch { display: inline-block; width: 12px; height: 12px; }
-.swatch.core { background: var(--accent); opacity: 0.7; }
-.swatch.fringe { background: repeating-linear-gradient(45deg, var(--accent) 0 1.5px, transparent 1.5px 4px); }
+.swatch.core { background: var(--area); opacity: 0.75; }
+.swatch.fringe { background: repeating-linear-gradient(45deg, var(--area) 0 1.5px, transparent 1.5px 4px); }
 
 /* ── Climate underlay ────────────────────────────────────── */
 .climate-detail { margin-top: 8px; }
@@ -65,7 +67,7 @@ button { font: inherit; color: inherit; }
 .climate-bar { height: 8px; border-radius: 1px; }
 .climate-ends { display: flex; justify-content: space-between; color: var(--ink-faint); font-size: 10px; margin-top: 3px; }
 .climate-opacity { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--ink-faint); font-size: 10px; }
-.climate-opacity input { flex: 1; accent-color: var(--accent); }
+.climate-opacity input { flex: 1; min-width: 0; width: 100%; margin: 0; accent-color: var(--accent); }
 .credit {
   position: absolute; left: 16px; bottom: 10px; z-index: 2; margin: 0; max-width: 60vw;
   font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-faint);
@@ -76,12 +78,12 @@ button { font: inherit; color: inherit; }
   --size: 30px;
   width: var(--size); height: var(--size); border-radius: 50%;
   display: grid; place-items: center; cursor: pointer;
-  background: var(--accent); color: var(--space);
-  border: 2px solid var(--space); box-shadow: 0 0 0 1px var(--accent);
+  background: var(--node); color: var(--space);
+  border: 2px solid var(--space); box-shadow: 0 0 0 1px var(--node);
   font-family: var(--font-mono); font-size: 11px; font-weight: 500;
 }
 /* No transform/transition on .cluster itself: the map moves markers with transform, and a transition makes them lag. */
-.cluster:hover { filter: brightness(1.15); box-shadow: 0 0 0 2px var(--accent); }
+.cluster:hover { box-shadow: 0 0 0 2px var(--accent); }
 
 /* ── Side panels ─────────────────────────────────────────── */
 .panel {

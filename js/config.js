@@ -69,7 +69,7 @@ export default {
       hdd: { label: 'Heating', title: 'Heating degree days (base 18 °C, per year)', low: '0', high: '10 000+' },
       continentality: { label: 'Continental', title: 'Continentality (Conrad index)', low: 'maritime', high: 'continental' },
     },
-    credit: 'Climate: WorldClim 2.1, 1970–2000 (Fick & Hijmans 2017). Heating degree days estimated from seasonal means.',
+    credit: 'Climate: WorldClim 2.1, monthly means 1970–2000 (Fick & Hijmans 2017).',
   },
 
   // How the map starts and behaves.
@@ -92,14 +92,17 @@ export default {
     border: '#6b6157',
     borderWidth: 0.6,
     graticule: '#2a2622',
-    point: '#8d9dc9',
+    point: '#f4e9dc',        // dots (off-white reads on both climate palettes)
     pointStroke: '#0d0c0b',
     pointRadius: 6.5,       // dot size; clicks also register a few pixels around it
     selectedRing: '#f4e9dc',
-    core: '#8d9dc9',
-    coreOpacity: 0.55,
-    fringe: '#8d9dc9',       // fringe countries get diagonal hatching in this colour
-    fringeOpacity: 0.7,
+    countryOutline: '#a39888',  // outline of a clicked country
+    countryOutlineWidth: 2.4,
+    core: '#b8aea2',
+    coreOpacity: 0.45,
+    fringe: '#d8cfc3',       // fringe countries get diagonal hatching in this colour
+    fringeOpacity: 0.8,
+    coreLine: '#d8cfc3',     // outline round the selected type's area
     areaOutline: 1.6,        // outline round the selected type's area (fringe gets a thinner dashed one)
     atmosphere: false,       // true = soft blue glow round the globe's edge
   },
