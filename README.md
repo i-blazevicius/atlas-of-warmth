@@ -23,6 +23,8 @@ published CSV, then reload the map. Nothing in this repository needs to change.
   area. Clicking a country lists each type under its local name there; the card's heading follows the dot or list
   you came from, and the names row on the card switches between them. Types without Names rows work as before.
 - **Infer gaps** (Types tab): write `no` to stop a type's inferred gap shading.
+- **Stand-out types** (`standout` in `js/config.js`, now T000): never merged into clusters, drawn as a black dot.
+- Row order in the sheet doesn't matter; types are matched by ID.
 - **Clicking a country** lists every type found in it, including types listed only by one of its regions.
 - **Inferred gaps**: an unlisted country whose land border mostly (60%+) touches a type's listed countries is hatched too
   (e.g. Latvia between Estonia and Lithuania). Change or switch off under `inferGaps` in `js/config.js`.

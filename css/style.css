@@ -11,7 +11,7 @@
   --ink-faint: #6b6157;         /* IDs, coordinates */
   --accent: #8d9dc9;            /* soft blue for interface accents (earlier: ember orange #e8662a) */
   --node: #f4e9dc;              /* map dots and clusters: off-white reads on every climate palette */
-  --area: #b8aea2;              /* type area shading in the legend (map value: theme.core in config.js) */
+  --area: #8a8177;              /* type area shading in the legend (map values: theme.core / theme.fringe in config.js) */
   --panel-bg: rgba(20, 18, 16, 0.92);
   --panel-line: #3a342e;
   --panel-width: 380px;
@@ -59,8 +59,8 @@ button { font: inherit; color: inherit; }
 .legend { display: flex; flex-direction: column; gap: 6px; color: var(--ink-dim); padding-top: 10px; border-top: 1px solid var(--panel-line); }
 .legend span { display: flex; align-items: center; gap: 6px; }
 .swatch { display: inline-block; width: 12px; height: 12px; }
-.swatch.core { background: var(--area); opacity: 0.75; }
-.swatch.fringe { background: repeating-linear-gradient(45deg, var(--area) 0 1.5px, transparent 1.5px 4px); }
+.swatch.core { background: var(--area); opacity: 0.85; }
+.swatch.fringe { background: repeating-linear-gradient(45deg, #a39888 0 1.5px, transparent 1.5px 4px); }
 
 /* ── Climate underlay ────────────────────────────────────── */
 .climate-detail { margin-top: 8px; }
@@ -96,6 +96,13 @@ button { font: inherit; color: inherit; }
 .dot-selected.active {
   outline: 2.5px solid var(--accent); outline-offset: 3px;
   z-index: 4;
+}
+
+/* Stand-out types (config.js → standout), e.g. T000: never clustered, inverted colours */
+.dot-standout {
+  width: 14px; height: 14px; padding: 0; border-radius: 50%; cursor: pointer;
+  background: #0d0c0b; border: 2px solid var(--node);
+  z-index: 3;
 }
 
 /* ── Side panels ─────────────────────────────────────────── */

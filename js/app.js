@@ -122,14 +122,22 @@ function pointInCountry(lon, lat, iso) {
 }
 // Where a name's dot goes: its own coordinates; else the type's centre if that lies in the name's
 // first area (its country); else a point inside that area.
+// first the name's own coordinates; then the type's centre if it lies in one of the name's countries
+// (country codes only); otherwise one dot in the middle of all its areas (if that middle falls inside
+// one of them), else inside the area nearest to that middle.
 function nameDot(t, n) {
   if (Number.isFinite(n.lat) && Number.isFinite(n.lon)) return [n.lon, n.lat];
-  const code = n.where[0];
-  if (!code) return [t.lon, t.lat];
-  const iso = isRegion(code) ? regionCountry(code) : (CONFIG.isoAliases[code]?.[0] ?? code);
-  if (iso && pointInCountry(t.lon, t.lat, iso) && (!isRegion(code) || n.where.length === 1 && t.names.length === 1)) return [t.lon, t.lat];
-  const label = state.labels?.[isRegion(code) ? code : iso];
-  return label ?? [t.lon, t.lat];
+  if (!n.where.length) return [t.lon, t.lat];
+  const geoIso = (c) => (isRegion(c) ? regionCountry(c) : (CONFIG.isoAliases[c]?.[0] ?? c));
+  const countries = n.where.filter((c) => !isRegion(c)).map(geoIso);
+  if (countries.some((iso) => pointInCountry(t.lon, t.lat, iso))) return [t.lon, t.lat];
+  const labels = n.where.map((c) => state.labels?.[isRegion(c) ? c : geoIso(c)]).filter(Boolean);
+  if (!labels.length) return [t.lon, t.lat];
+  if (labels.length === 1) return labels[0];
+  const mid = [labels.reduce((a, l) => a + l[0], 0) / labels.length, labels.reduce((a, l) => a + l[1], 0) / labels.length];
+  const owners = [...new Set(n.where.map(geoIso))];
+  if (owners.some((iso) => pointInCountry(mid[0], mid[1], iso))) return mid;
+  return labels.reduce((best, l) => (Math.hypot(l[0] - mid[0], l[1] - mid[1]) < Math.hypot(best[0] - mid[0], best[1] - mid[1]) ? l : best));
 }
 // Does a name belong to a country (directly, or through one of its regions)?
 const nameIn = (n, iso) => n.where.some((c) => (isRegion(c) ? regionCountry(c) === iso : expandIso([c]).includes(iso)));
@@ -239,6 +247,14 @@ function featureBox(f) {
 }
 
 // Bounds of a type's countries plus its point, picking whichever side of the antimeridian is tighter.
+// Each area of a type (countries, regions) as [w, s, e, n], plus a tiny box for its dot.
+function boxesFor(type, regions = []) {
+  const boxes = [...expandIso([...type.core, ...type.fringe]).map((iso) => state.countryBoxes.get(iso)), ...regions.map(featureBox)]
+    .filter(Boolean)
+    .map((box) => ((box.a[2] - box.a[0]) > 180 ? box.b : box.a));
+  return boxes;
+}
+
 function boundsFor(type, regions = []) {
   let a = [type.lon, type.lat, type.lon, type.lat];
   const lonB = type.lon < 0 ? type.lon + 360 : type.lon;
@@ -268,10 +284,18 @@ function selectedCollection() {
   return { type: 'FeatureCollection', features: t ? spreadDots(dotFeatures(t)) : [] };
 }
 
+const isStandout = (id) => CONFIG.standout?.ids?.includes(id);
+// Stand-out types (e.g. T000) are drawn from their own source and never clustered.
+function standoutCollection() {
+  const features = [];
+  for (const t of visibleTypes()) if (isStandout(t.id) && t.id !== state.selected) features.push(...dotFeatures(t));
+  return { type: 'FeatureCollection', features };
+}
+
 function featureCollection() {
   const features = [];
   for (const t of visibleTypes()) {
-    if (t.id === state.selected) continue;
+    if (t.id === state.selected || isStandout(t.id)) continue;
     features.push(...dotFeatures(t));
   }
   return { type: 'FeatureCollection', features: spreadDots(features) };
@@ -314,18 +338,23 @@ function graticule(step = 20) {
   return { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: lines } };
 }
 
+// Diagonal hatching drawn pixel by pixel (no anti-aliased edges), so tiles join without seams.
+// Drawn at 2× and registered with pixelRatio 2 so the lines stay crisp.
+const HATCH = { spacing: 6, width: 1.5, ratio: 2 };   // in screen pixels
 function hatchImage(color, opacity) {
-  const size = 8;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
-  const ctx = canvas.getContext('2d');
-  ctx.strokeStyle = color;
-  ctx.globalAlpha = opacity;
-  ctx.lineWidth = 1.6;
-  ctx.beginPath();
-  for (let i = -size; i <= size * 2; i += size) { ctx.moveTo(i, size); ctx.lineTo(i + size, 0); }
-  ctx.stroke();
-  return ctx.getImageData(0, 0, size, size);
+  const step = HATCH.spacing * HATCH.ratio, w = Math.round(HATCH.width * HATCH.ratio);
+  const size = step * 4;
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
+  const data = new Uint8ClampedArray(size * size * 4);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if ((x + y) % step < w) {
+        const k = (y * size + x) * 4;
+        data[k] = r; data[k + 1] = g; data[k + 2] = b; data[k + 3] = Math.round(255 * opacity);
+      }
+    }
+  }
+  return { width: size, height: size, data };
 }
 
 const map = new maplibregl.Map({
@@ -373,7 +402,7 @@ const mapLoaded = new Promise((resolve) => map.once('load', resolve));
 document.body.style.background = T.space;
 
 function addLayers(countries) {
-  map.addImage('hatch', hatchImage(T.fringe, T.fringeOpacity));
+  map.addImage('hatch', hatchImage(T.fringe, T.fringeOpacity), { pixelRatio: HATCH.ratio });
   map.addSource('graticule', { type: 'geojson', data: graticule() });
   map.addSource('countries', { type: 'geojson', data: countries });
   map.addSource('types', {
@@ -406,8 +435,9 @@ function addLayers(countries) {
   // Outlines of the selected type's area, so it stays readable over a climate underlay.
   map.addLayer({ id: 'core-line', type: 'line', source: 'countries', filter: none, paint: { 'line-color': T.coreLine, 'line-width': T.areaOutline } });
   map.addLayer({ id: 'fringe-line', type: 'line', source: 'countries', filter: none, paint: { 'line-color': T.coreLine, 'line-width': T.areaOutline * 0.6, 'line-dasharray': [2, 1.5] } });
-  map.addLayer({ id: 'region-core-line', type: 'line', source: 'regions', filter: ['==', ['get', 'role'], 'core'], paint: { 'line-color': T.coreLine, 'line-width': T.areaOutline } });
-  map.addLayer({ id: 'region-fringe-line', type: 'line', source: 'regions', filter: ['==', ['get', 'role'], 'fringe'], paint: { 'line-color': T.coreLine, 'line-width': T.areaOutline * 0.6, 'line-dasharray': [2, 1.5] } });
+  // Region outlines switched off for now; remove the // to bring them back.
+  // map.addLayer({ id: 'region-core-line', type: 'line', source: 'regions', filter: ['==', ['get', 'role'], 'core'], paint: { 'line-color': T.coreLine, 'line-width': T.areaOutline } });
+  // map.addLayer({ id: 'region-fringe-line', type: 'line', source: 'regions', filter: ['==', ['get', 'role'], 'fringe'], paint: { 'line-color': T.coreLine, 'line-width': T.areaOutline * 0.6, 'line-dasharray': [2, 1.5] } });
   map.addLayer({ id: 'borders', type: 'line', source: 'countries', paint: { 'line-color': T.border, 'line-width': T.borderWidth } });
   map.addLayer({ id: 'country-selected', type: 'line', source: 'countries', filter: none, paint: { 'line-color': T.countryOutline, 'line-width': T.countryOutlineWidth } });
   map.addLayer({
@@ -457,12 +487,12 @@ function updateClusters() {
 // If an open-type dot lands on a cluster bubble, push it out to the bubble's edge so it isn't
 // mistaken for part of the cluster.
 function nudgeSelected() {
-  if (!selectedMarkers.length) return;
+  if (!selectedMarkers.length && !standoutMarkers.length) return;
   const bubbles = [...clustersOnScreen.values()].map((m) => ({
     p: map.project(m.getLngLat()),
     r: parseFloat(m.getElement().style.getPropertyValue('--size')) / 2 || 15,
   }));
-  for (const m of selectedMarkers) {
+  for (const m of [...selectedMarkers, ...standoutMarkers]) {
     const p = map.project(m.getLngLat());
     let offset = [0, 0];
     for (const b of bubbles) {
@@ -519,6 +549,7 @@ function gapsFor(type) {
 // The open type's dots are drawn as HTML elements (like the clusters) so they sit on top of them.
 // Styled in CSS: .dot-selected, and .dot-selected.active for the one whose name is shown.
 let selectedMarkers = [];
+let standoutMarkers = [];   // stand-out types (T000), also drawn above the clusters
 function markDots(id, n) {
   for (const m of selectedMarkers) m.getElement().classList.toggle('active', Number(m.getElement().dataset.n) === n);
 }
@@ -526,7 +557,15 @@ function markDots(id, n) {
 function refreshDots() {
   resetClusters();
   map.getSource('types').setData(featureCollection());
-  for (const m of selectedMarkers) m.remove();
+  for (const m of [...selectedMarkers, ...standoutMarkers]) m.remove();
+  standoutMarkers = standoutCollection().features.map((f) => {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'dot-standout';
+    el.title = displayName(state.byId.get(f.properties.id), f.properties.n).name;
+    el.addEventListener('click', (e) => { e.stopPropagation(); select(f.properties.id, { name: f.properties.n }); });
+    return new maplibregl.Marker({ element: el, opacityWhenCovered: 0 }).setLngLat(f.geometry.coordinates).addTo(map);
+  });
   selectedMarkers = selectedCollection().features.map((f) => {
     const el = document.createElement('button');
     el.type = 'button';
@@ -554,7 +593,8 @@ async function switchName(i, { fly = true } = {}) {
   const regions = await regionFeatures(regionsOf(n.where), 'name');
   if (state.selected !== id || state.nameIndex !== i) return;
   const [lon, lat] = nameDot(type, n);
-  fitIfNeeded(boundsFor({ lon, lat, core: countriesOf(n.where), fringe: [] }, regions));
+  const area = { lon, lat, core: countriesOf(n.where), fringe: [] };
+  fitIfNeeded(boundsFor(area, regions), boxesFor(area, regions), [lon, lat]);
 }
 
 async function select(id, { fly = true, name = null } = {}) {
@@ -580,37 +620,59 @@ async function select(id, { fly = true, name = null } = {}) {
   ];
   if (state.selected !== id) return; // another type was clicked meanwhile
   map.getSource('regions').setData({ type: 'FeatureCollection', features: regions });
-  if (fly && V.onClick === 'fit') fitIfNeeded(boundsFor(type, regions));
+  if (fly && V.onClick === 'fit') {
+    const n = type.names[state.nameIndex];
+    fitIfNeeded(boundsFor(type, regions), boxesFor(type, regions), n ? nameDot(type, n) : [type.lon, type.lat]);
+  }
 }
 
-// Zoom out to show the whole extent if it doesn't fit; never zoom in.
-// If it fits at the current zoom but is partly off-screen, pan to it.
-function fitIfNeeded(bounds) {
+// Camera rules after selecting a type (or one of its names), when "Fit extent" is on:
+//  1. If any of its areas is entirely off screen, bring the whole extent into view (zooming out if needed).
+//  2. If every area is at least partly on screen, leave the view alone (no need to show all of Russia)...
+//  3. ...unless the whole extent is tiny on screen (e.g. Liechtenstein): then zoom in a little.
+function fitIfNeeded(bounds, boxes = [], dot = null) {
   const panel = $('panel').getBoundingClientRect();
   const narrow = window.innerWidth < 760;
   const padding = narrow
     ? { top: 40, bottom: window.innerHeight * 0.62 + 20, left: 40, right: 40 }
     : { top: 60, bottom: 60, left: 280, right: panel.width + 60 };
   // On the flat map, use the copy of the world nearest to the current view.
+  let shift = 0;
   if (V.projection === 'mercator') {
     const mid = (bounds[0][0] + bounds[1][0]) / 2;
-    const shift = Math.round((map.getCenter().lng - mid) / 360) * 360;
+    shift = Math.round((map.getCenter().lng - mid) / 360) * 360;
     bounds = [[bounds[0][0] + shift, bounds[0][1]], [bounds[1][0] + shift, bounds[1][1]]];
   }
+  const w = map.getCanvas().clientWidth, h = map.getCanvas().clientHeight;
+  const view = { x0: padding.left, y0: padding.top, x1: w - padding.right, y1: h - padding.bottom };
+  const screenRect = ([west, south, east, north]) => {
+    const pts = [[west, south], [east, north], [west, north], [east, south], [(west + east) / 2, (south + north) / 2]]
+      .map(([x, y]) => map.project([x + shift, y]));
+    return { x0: Math.min(...pts.map((p) => p.x)), x1: Math.max(...pts.map((p) => p.x)),
+      y0: Math.min(...pts.map((p) => p.y)), y1: Math.max(...pts.map((p) => p.y)) };
+  };
+  const onScreen = (r) => r.x1 >= view.x0 && r.x0 <= view.x1 && r.y1 >= view.y0 && r.y0 <= view.y1;
   const cam = map.cameraForBounds(bounds, { padding });
   if (!cam) return;
-  if (cam.zoom < map.getZoom()) {
-    map.easeTo({ ...cam, duration: 1200 });
+  const allVisible = boxes.length ? boxes.every((b) => onScreen(screenRect(b))) : false;
+
+  if (!allVisible) {
+    if (cam.zoom < map.getZoom()) map.easeTo({ ...cam, duration: 1200 });
+    else map.easeTo({ center: cam.center, duration: 1000 });
     return;
   }
-  // Does the extent already sit inside the padded screen area?
-  const w = map.getCanvas().clientWidth, h = map.getCanvas().clientHeight;
-  const corners = [[bounds[0][0], bounds[0][1]], [bounds[1][0], bounds[1][1]], [bounds[0][0], bounds[1][1]], [bounds[1][0], bounds[0][1]]];
-  const inside = corners.every((c) => {
-    const p = map.project(c);
-    return p.x >= padding.left && p.x <= w - padding.right && p.y >= padding.top && p.y <= h - padding.bottom;
-  });
-  if (!inside) map.easeTo({ center: cam.center, duration: 1000 });
+  // Areas in view but the dot is not (e.g. opened from a country list): just pan to the dot.
+  if (dot && !onScreen(screenRect([dot[0], dot[1], dot[0], dot[1]]))) {
+    map.easeTo({ center: [dot[0] + shift, dot[1]], duration: 1000 });
+    return;
+  }
+  // Everything is (partly) in view: only act if the whole extent is very small on screen.
+  const all = screenRect([bounds[0][0] - shift, bounds[0][1], bounds[1][0] - shift, bounds[1][1]]);
+  const size = Math.max(all.x1 - all.x0, all.y1 - all.y0, 1);
+  if (size < V.smallArea) {
+    const zoom = Math.min(map.getZoom() + Math.log2(V.smallAreaTarget / size), V.smallAreaMaxZoom, cam.zoom);
+    if (zoom > map.getZoom() + 0.2) map.easeTo({ center: cam.center, zoom, duration: 1000 });
+  }
 }
 
 function clearSelection() {
@@ -654,7 +716,7 @@ function renderType(t, nameIndex = -1) {
       ${t.period ? `<dt>Period of use</dt><dd>${esc(t.period)}</dd>` : ''}
     </dl>
     ${t.cases.length ? `<section class="stories"><h2>Stories</h2><ul>${caseItems}</ul></section>` : ''}
-    <p class="meta">${esc(t.id)} · ${t.lat}, ${t.lon}</p>`;
+    <p class="meta">${esc(t.id)} · ${Math.abs(t.lat)}° ${t.lat < 0 ? 'S' : 'N'}, ${Math.abs(t.lon)}° ${t.lon < 0 ? 'W' : 'E'}</p>`;
   $('panel').hidden = false;
   $('panel-body').scrollTop = 0;
   loadImage(t.id, $('type-image'));
@@ -775,11 +837,7 @@ function syncControls() {
 }
 function updateCount() {
   const shown = visibleTypes().length;
-  const withStories = state.types.filter((t) => t.cases.length).length;
-  const withImages = state.images ? state.types.filter((t) => state.images.has(t.id)).length : null;
-  $('count').textContent = state.onlyStories || state.onlyImages
-    ? `${shown} of ${state.types.length} types`
-    : `${state.types.length} types · ${withStories} with stories${withImages !== null ? ` · ${withImages} with images` : ''}`;
+  $('count').textContent = shown === state.types.length ? `${shown} types` : `${shown} of ${state.types.length} types`;
 }
 
 document.addEventListener('click', (e) => {
@@ -864,6 +922,7 @@ async function start() {
   applyProjection();
   {
     addLayers(countries);
+    refreshDots();
     applyClimate();
     map.on('render', () => { if (map.getSource('types') && map.isSourceLoaded('types')) { updateClusters(); nudgeSelected(); } });
     for (const layer of ['points-hit']) {

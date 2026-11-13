@@ -100,8 +100,13 @@ export default {
     maxZoom: 9,
     flatLatitudes: [-60, 84],  // flat map: southern and northern limit (−60 hides Antarctica); also stops zooming out past one world width
     onClick: 'fit',          // 'fit' = zoom to the type's countries, 'stay' = keep the current view
-    clusterRadius: 38,       // how close points must be (in pixels) to merge into a cluster
+    clusterRadius: 26,       // how close points must be (in pixels) to merge into a cluster
     clusterMaxZoom: 8,       // above this zoom, points never cluster
+    // Small areas: when a selected type's whole area is smaller on screen than smallArea pixels
+    // (its longest side), zoom in until it reaches about smallAreaTarget pixels (never past smallAreaMaxZoom).
+    smallArea: 60,
+    smallAreaTarget: 160,
+    smallAreaMaxZoom: 7,
   },
 
   // Map colours. Any CSS colour works.
@@ -119,10 +124,10 @@ export default {
     activeDot: '#8d9dc9',    // the selected dot (filled) and the ring round the same type's other dots
     countryOutline: '#a39888',  // outline of a clicked country
     countryOutlineWidth: 2.4,
-    core: '#b8aea2',
-    coreOpacity: 0.45,
-    fringe: '#d8cfc3',       // fringe countries get diagonal hatching in this colour
-    fringeOpacity: 0.8,
+    core: '#8a8177',         // shading of the selected type's area (earlier: #b8aea2)
+    coreOpacity: 0.6,
+    fringe: '#a39888',       // hatching of less prevalent / likely areas (earlier: #d8cfc3)       // fringe countries get diagonal hatching in this colour
+    fringeOpacity: 0.9,
     coreLine: '#d8cfc3',     // outline round the selected type's area
     areaOutline: 1.6,        // outline round the selected type's area (fringe gets a thinner dashed one)
     atmosphere: false,       // true = soft blue glow round the globe's edge
@@ -135,6 +140,11 @@ export default {
     share: 0.65,             // at least 65% of the country's land border touches listed countries…
     maxGap: 150,             // …and listed borders surround it: no stretch wider than 150° (seen from its centre)
                              // without one. Stops edge countries like Greece being added for Balkan types.
+  },
+
+  // Types drawn apart from the rest: never merged into clusters, with their own colours.
+  standout: {
+    ids: ['T000'],           // their look is in css/style.css → .dot-standout
   },
 
   // Some sheet codes differ from the border data's codes. Left: code in the sheet, right: codes to shade.

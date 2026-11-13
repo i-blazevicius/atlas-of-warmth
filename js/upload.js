@@ -248,10 +248,11 @@ function findCol(headers, label) {
 async function loadTypes() {
   const text = await (await fetch(CONFIG.data.types, { cache: 'no-store' })).text();
   const { data, meta } = Papa.parse(text, { header: true, skipEmptyLines: 'greedy' });
-  const c = Object.fromEntries(['id', 'family', 'name', 'translit', 'native', 'search'].map((k) => [k, findCol(meta.fields, CONFIG.typeColumns[k])]));
+  const c = Object.fromEntries(['id', 'family', 'name', 'translit', 'native', 'search', 'cases'].map((k) => [k, findCol(meta.fields, CONFIG.typeColumns[k])]));
   const v = (r, k) => (c[k] ? String(r[c[k]] ?? '').trim() : '');
   state.types = data
-    .map((r) => ({ id: v(r, 'id'), family: v(r, 'family'), name: v(r, 'name'), translit: v(r, 'translit'), native: v(r, 'native'), search: v(r, 'search') }))
+    .map((r) => ({ id: v(r, 'id'), family: v(r, 'family'), name: v(r, 'name'), translit: v(r, 'translit'), native: v(r, 'native'), search: v(r, 'search'),
+      stories: (v(r, 'cases').match(new RegExp(CONFIG.caseIdPattern, 'g')) ?? []).length }))
     .filter((t) => t.id);
 }
 
@@ -282,7 +283,8 @@ function render() {
 
 function updateSummary() {
   const withImg = state.types.filter((t) => state.existing.has(t.id)).length;
-  $('summary').textContent = `${withImg} of ${state.types.length} types have an image`;
+  const withStories = state.types.filter((t) => t.stories).length;
+  $('summary').textContent = `${state.types.length} types · ${withImg} with an image · ${withStories} with stories`;
 }
 
 // ── Events ─────────────────────────────────────────────────
