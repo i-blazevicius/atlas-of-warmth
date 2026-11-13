@@ -74,9 +74,70 @@ function parseTypes({ rows, headers }) {
       fringe: splitList(get(row, 'fringe')).map((x) => x.toUpperCase()),
       // core/fringe hold both country codes (RUS) and region codes (US-CA); regions contain a hyphen.
       cases: [...new Set(get(row, 'cases').match(new RegExp(CONFIG.caseIdPattern, 'g')) ?? [])],
+      inferGaps: get(row, 'inferGaps').toLowerCase() !== 'no',
+      names: [],          // local names from the Names tab, filled in by parseNames
     });
   }
   return types;
+}
+
+// Names tab: local names per type and place.
+function parseNames({ rows, headers }) {
+  const c = resolveColumns(headers, CONFIG.nameColumns);
+  const get = (row, key) => (c[key] ? String(row[c[key]] ?? '').trim() : '');
+  for (const row of rows) {
+    const t = state.byId.get(get(row, 'type'));
+    const name = get(row, 'name');
+    if (!t || !name) continue;
+    t.names.push({
+      name,
+      native: get(row, 'native'),
+      language: get(row, 'language'),
+      where: splitList(get(row, 'where')).map((x) => x.toUpperCase()),
+      lat: parseFloat(get(row, 'lat')),
+      lon: parseFloat(get(row, 'lon')),
+      note: get(row, 'note'),
+    });
+  }
+}
+
+// Point-in-polygon against the country shapes, for placing name dots.
+function pointInRing(x, y, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i], [xj, yj] = ring[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function pointInCountry(lon, lat, iso) {
+  for (const geom of state.countryShapes.get(iso) ?? []) {
+    const polys = geom.type === 'MultiPolygon' ? geom.coordinates : [geom.coordinates];
+    for (const poly of polys) {
+      if (pointInRing(lon, lat, poly[0]) && !poly.slice(1).some((hole) => pointInRing(lon, lat, hole))) return true;
+    }
+  }
+  return false;
+}
+// Where a name's dot goes: its own coordinates; else the type's centre if that lies in the name's
+// first area (its country); else a point inside that area.
+function nameDot(t, n) {
+  if (Number.isFinite(n.lat) && Number.isFinite(n.lon)) return [n.lon, n.lat];
+  const code = n.where[0];
+  if (!code) return [t.lon, t.lat];
+  const iso = isRegion(code) ? regionCountry(code) : (CONFIG.isoAliases[code]?.[0] ?? code);
+  if (iso && pointInCountry(t.lon, t.lat, iso) && (!isRegion(code) || n.where.length === 1 && t.names.length === 1)) return [t.lon, t.lat];
+  const label = state.labels?.[isRegion(code) ? code : iso];
+  return label ?? [t.lon, t.lat];
+}
+// Does a name belong to a country (directly, or through one of its regions)?
+const nameIn = (n, iso) => n.where.some((c) => (isRegion(c) ? regionCountry(c) === iso : expandIso([c]).includes(iso)));
+// Name to show for a type in a given country (or null for the type's own name).
+const nameIndexFor = (t, iso) => t.names.findIndex((n) => nameIn(n, iso));
+function displayName(t, i) {
+  const n = t.names[i];
+  return n ? { name: n.name, native: n.native, language: n.language }
+    : { name: t.translit || t.name, native: t.native, language: '' };
 }
 
 function parseCases({ rows, headers }) {
@@ -196,15 +257,32 @@ function visibleTypes() {
 }
 
 function featureCollection() {
-  const list = visibleTypes();
-  return {
-    type: 'FeatureCollection',
-    features: list.map((t) => ({
-      type: 'Feature',
-      properties: { id: t.id },
-      geometry: { type: 'Point', coordinates: [t.lon, t.lat] },
-    })),
-  };
+  const features = [];
+  for (const t of visibleTypes()) {
+    // One dot per local name (types without names keep their single centre dot).
+    const dots = t.names.length ? t.names.map((n, i) => [i, nameDot(t, n)]) : [[-1, [t.lon, t.lat]]];
+    for (const [n, coords] of dots) {
+      features.push({ type: 'Feature', properties: { id: t.id, n }, geometry: { type: 'Point', coordinates: coords } });
+    }
+  }
+  // Dots placed on exactly the same spot (e.g. several names in one country) are fanned out
+  // in a small ring, so they separate when zoomed in.
+  const groups = new Map();
+  for (const f of features) {
+    const key = f.geometry.coordinates.map((v) => v.toFixed(3)).join(',');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(f);
+  }
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const [lon, lat] = group[0].geometry.coordinates;
+    const r = 0.25 + 0.04 * group.length; // degrees
+    group.forEach((f, i) => {
+      const a = (2 * Math.PI * i) / group.length;
+      f.geometry.coordinates = [lon + (r * Math.cos(a)) / Math.cos((lat * Math.PI) / 180), lat + r * Math.sin(a)];
+    });
+  }
+  return { type: 'FeatureCollection', features };
 }
 
 // ── Map ────────────────────────────────────────────────────
@@ -381,7 +459,7 @@ async function openCluster(clusterId, coords) {
   if (zoom > V.clusterMaxZoom || zoom > V.maxZoom) {
     // Points that sit on (almost) the same spot never separate: list them instead.
     const leaves = await source.getClusterLeaves(clusterId, 500, 0);
-    showList(leaves.map((l) => state.byId.get(l.properties.id)).filter(Boolean));
+    showList(leaves.map((l) => [state.byId.get(l.properties.id), l.properties.n]).filter(([t]) => t));
   } else {
     map.easeTo({ center: coords, zoom: zoom + 0.2, duration: 700 });
   }
@@ -397,6 +475,7 @@ function setArea(core, fringe) {
 // Countries shaded as "less prevalent / likely" because they sit inside the type's area.
 // Countries listed only by region count as neighbours, but are never filled in whole.
 function gapsFor(type) {
+  if (!type.inferGaps) return [];
   if (type._gaps) return type._gaps;
   const all = [...type.core, ...type.fringe];
   const partial = [...new Set(regionsOf(all).map(regionCountry).filter(Boolean))];
@@ -404,16 +483,17 @@ function gapsFor(type) {
   return type._gaps;
 }
 
-async function select(id, { fly = true } = {}) {
+async function select(id, { fly = true, name = null } = {}) {
   const type = state.byId.get(id);
   if (!type) return;
   state.selected = id;
+  state.nameIndex = name ?? (type.names.length ? 0 : -1);
   state.country = null;
   map.setFilter('country-selected', ['in', ['get', 'iso'], ['literal', []]]);
   setArea(expandIso(type.core), [...expandIso(type.fringe), ...gapsFor(type)]);
   map.setFilter('selected', ['==', ['get', 'id'], id]);
   map.getSource('regions').setData({ type: 'FeatureCollection', features: [] });
-  renderType(type);
+  renderType(type, state.nameIndex);
   closeStory();
   history.replaceState(null, '', `#${id}`);
 
@@ -469,7 +549,7 @@ function clearSelection() {
   history.replaceState(null, '', location.pathname + location.search);
 }
 
-function renderType(t) {
+function renderType(t, nameIndex = -1) {
   const caseItems = t.cases.map((cid) => {
     const row = state.cases.get(cid);
     const title = row && state.caseCols.title ? row[state.caseCols.title] : '';
@@ -478,13 +558,20 @@ function renderType(t) {
       : `<li class="missing">${esc(cid)} — not found in Cases</li>`;
   }).join('');
 
-  const showNative = t.native && t.native !== t.translit;
+  const shown = displayName(t, nameIndex);
+  const showNative = shown.native && shown.native !== shown.name;
+  // All local names, each switching the heading; the current one is marked.
+  const others = t.names.length > 1 || (t.names.length === 1 && t.names[0].name !== (t.translit || t.name))
+    ? `<p class="also-known">${t.names.map((n, i) => `<button type="button" data-name="${i}" class="${i === nameIndex ? 'current' : ''}" title="${esc(n.language)}${n.note ? ' · ' + esc(n.note) : ''}">${esc(n.name)}<span>${esc(n.where.slice(0, 2).join(' '))}${n.where.length > 2 ? '…' : ''}</span></button>`).join('')}</p>`
+    : '';
   $('panel-body').innerHTML = `
     <figure class="type-image" id="type-image"></figure>
     ${t.family ? `<p class="family">${esc(t.family)}</p>` : ''}
-    <h1 class="translit">${esc(t.translit || t.name)}</h1>
-    ${showNative ? `<p class="native">${esc(t.native)}</p>` : ''}
-    ${t.translit ? `<p class="type-name">${esc(t.name)}</p>` : ''}
+    <h1 class="translit">${esc(shown.name)}</h1>
+    ${showNative ? `<p class="native">${esc(shown.native)}</p>` : ''}
+    ${shown.language ? `<p class="language">${esc(shown.language)}</p>` : ''}
+    ${others}
+    <p class="type-name">${esc(t.name)}</p>
     <dl class="fields">
       ${t.form ? `<dt>Form</dt><dd>${esc(t.form)}</dd>` : ''}
       ${t.period ? `<dt>Period of use</dt><dd>${esc(t.period)}</dd>` : ''}
@@ -526,11 +613,15 @@ function loadImage(id, figure) {
   tryNext();
 }
 
-const typeItems = (types) => `<ul class="type-list">${types.map((t) => `<li><button type="button" data-type="${esc(t.id)}">${esc(t.translit || t.name)}<small>${esc(t.id)} · ${esc(t.family)}</small></button></li>`).join('')}</ul>`;
+// items: [type, nameIndex] pairs; the local name is shown, with the type's own name small below.
+const typeItems = (items) => `<ul class="type-list">${items.map(([t, i]) => {
+  const shown = displayName(t, i);
+  return `<li><button type="button" data-type="${esc(t.id)}" data-n="${i}">${esc(shown.name)}<small>${esc(t.id)} · ${esc(t.name)}</small></button></li>`;
+}).join('')}</ul>`;
 
-function showList(types) {
+function showList(items) {
   state.selected = null;
-  $('panel-body').innerHTML = `<p class="list-title">${types.length} types in this spot</p>${typeItems(types)}`;
+  $('panel-body').innerHTML = `<p class="list-title">${items.length} types in this spot</p>${typeItems(items)}`;
   $('panel').hidden = false;
 }
 
@@ -542,8 +633,9 @@ function showCountry(iso, name) {
   const inCodes = (codes) => expandIso(codes).includes(iso) || regionsOf(codes).some((c) => regionCountry(c) === iso);
   const wide = [], less = [];
   for (const t of state.types) {
-    if (inCodes(t.core)) wide.push(t);
-    else if (inCodes(t.fringe) || gapsFor(t).includes(iso)) less.push(t);
+    const item = [t, nameIndexFor(t, iso)];
+    if (inCodes(t.core)) wide.push(item);
+    else if (inCodes(t.fringe) || gapsFor(t).includes(iso)) less.push(item);
   }
   const section = (title, list) => (list.length ? `<p class="list-title">${title}</p>${typeItems(list)}` : '');
   $('panel-body').innerHTML = `
@@ -620,7 +712,14 @@ document.addEventListener('click', (e) => {
   if (t.dataset.onclick) { V.onClick = t.dataset.onclick; syncControls(); }
   if (t.dataset.climate) { climate.current = t.dataset.climate; applyClimate(); }
   if (t.dataset.case) openStory(t.dataset.case);
-  if (t.dataset.type) select(t.dataset.type);
+  if (t.dataset.type) select(t.dataset.type, { name: t.dataset.n !== undefined ? Number(t.dataset.n) : null });
+  if (t.dataset.name !== undefined && state.selected) {
+    state.nameIndex = Number(t.dataset.name);
+    const type = state.byId.get(state.selected);
+    const scroll = $('panel-body').scrollTop;
+    renderType(type, state.nameIndex);
+    $('panel-body').scrollTop = scroll;
+  }
   if (t.dataset.close === 'panel') clearSelection();
   if (t.dataset.close === 'story') closeStory();
 });
@@ -659,12 +758,14 @@ document.addEventListener('keydown', (e) => {
 async function start() {
   syncControls();
   showMessage('Loading data…', true);
-  let typesCSV, casesCSV, countries;
+  let typesCSV, casesCSV, countries, namesCSV;
   try {
-    [typesCSV, casesCSV, countries] = await Promise.all([
+    [typesCSV, casesCSV, countries, namesCSV] = await Promise.all([
       loadCSV(CONFIG.data.types),
       loadCSV(CONFIG.data.cases).catch((err) => { console.warn('Cases not loaded:', err); return { rows: [], headers: [] }; }),
       fetch(CONFIG.data.countries).then((r) => r.json()),
+      (CONFIG.data.names ? loadCSV(CONFIG.data.names) : Promise.resolve(null)).catch((err) => { console.warn('Names not loaded:', err); return null; }),
+      fetch(CONFIG.data.labels).then((r) => r.json()).then((x) => { state.labels = x; }).catch(() => {}),
       fetch(CONFIG.data.credits, { cache: 'no-store' }).then((r) => r.json()).then((c) => { state.credits = c; }).catch(() => {}),
       fetch(CONFIG.data.borders).then((r) => r.json()).then((b) => { state.borders = b; }).catch(() => {}),
       fetch(`${CONFIG.climate.folder}legend.json`).then((r) => r.json()).then((x) => { climate.legend = x; }).catch(() => {}),
@@ -678,6 +779,12 @@ async function start() {
   state.types = parseTypes(typesCSV);
   state.byId = new Map(state.types.map((t) => [t.id, t]));
   state.cases = parseCases(casesCSV);
+  state.countryShapes = new Map();
+  for (const f of countries.features) {
+    if (!state.countryShapes.has(f.properties.iso)) state.countryShapes.set(f.properties.iso, []);
+    state.countryShapes.get(f.properties.iso).push(f.geometry);
+  }
+  if (namesCSV) parseNames(namesCSV);
   computeCountryBoxes(countries);
   showMessage('');
   updateCount();
@@ -689,7 +796,10 @@ async function start() {
     addLayers(countries);
     applyClimate();
     map.on('render', () => { if (map.getSource('types') && map.isSourceLoaded('types')) updateClusters(); });
-    map.on('click', 'points-hit', (e) => select(e.features[0].properties.id));
+    map.on('click', 'points-hit', (e) => {
+      const p = e.features[0].properties;
+      select(p.id, { name: Number(p.n) });
+    });
     map.on('mouseenter', 'points-hit', () => { map.getCanvas().style.cursor = 'pointer'; });
     map.on('mouseleave', 'points-hit', () => { map.getCanvas().style.cursor = ''; });
     map.on('click', (e) => {

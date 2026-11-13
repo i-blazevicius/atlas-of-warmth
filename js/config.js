@@ -11,7 +11,9 @@ export default {
   data: {
     types: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSisp-A30FUq5SYzZc99_S1lDcQU7IEPai58C95VTVTsYEZvuOvC-r0hoLQwF9Y3aenVgKruYcGKvf3/pub?gid=1467989397&single=true&output=csv',
     cases: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSisp-A30FUq5SYzZc99_S1lDcQU7IEPai58C95VTVTsYEZvuOvC-r0hoLQwF9Y3aenVgKruYcGKvf3/pub?gid=207720304&single=true&output=csv',
+    names: '',                         // published CSV of the Names tab (local names per type and place)
     countries: 'data/countries.geojson',
+    labels: 'data/labels.json',        // a point inside every country and region, for placing name dots
     ocean: 'data/ocean.geojson',       // only drawn over the climate underlay, to keep coastlines crisp
     borders: 'data/borders.json',
     credits: 'data/credits.json',      // image credits, written by the upload page
@@ -35,6 +37,21 @@ export default {
     core: 'Core countries',
     fringe: 'Fringe countries',
     cases: 'Linked cases',
+    inferGaps: 'Infer gaps',  // write "no" to switch off inferred gap shading for a type
+  },
+
+  // Names tab: one row per local name of a type. Each row gets its own dot on the map
+  // (at Latitude/Longitude if filled in; otherwise at the type's centre point if that lies in the
+  // first "Shown in" area, else inside that area), and is used when listing a country's types.
+  nameColumns: {
+    type: 'Type ID',
+    name: 'Name',
+    native: 'Native script',
+    language: 'Language',
+    where: 'Shown in',
+    lat: 'Latitude',
+    lon: 'Longitude',
+    note: 'Note',
   },
 
   // Only text in the "Linked cases" column that looks like a case ID is used (W001, W12 …); notes around it are ignored.

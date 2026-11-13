@@ -17,6 +17,12 @@ published CSV, then reload the map. Nothing in this repository needs to change.
   a few custom groups: `GB-NIR` Northern Ireland, `GB-WLS` Wales, `GB-SCT` Scotland, `GB-SEE` South East England,
   `LV-VID` / `LV-KUR` / `LV-ZEM` / `LV-LAT` (Latvian regions). Unknown codes are listed in the browser console.
   Look codes up in `data/regions/index.json`, or on Wikipedia ("ISO 3166-2:IT").
+- **Names tab**: one row per local name of a type (Type ID, Name, Native script, Language, Shown in, Latitude,
+  Longitude, Note). Each row gets its own dot, all opening the same card. The dot sits at Latitude/Longitude if
+  filled in; otherwise at the type's centre point if that lies in the first "Shown in" area; otherwise inside that
+  area. Clicking a country lists each type under its local name there; the card's heading follows the dot or list
+  you came from, and the names row on the card switches between them. Types without Names rows work as before.
+- **Infer gaps** (Types tab): write `no` to stop a type's inferred gap shading.
 - **Clicking a country** lists every type found in it, including types listed only by one of its regions.
 - **Inferred gaps**: an unlisted country whose land border mostly (60%+) touches a type's listed countries is hatched too
   (e.g. Latvia between Estonia and Lithuania). Change or switch off under `inferGaps` in `js/config.js`.
