@@ -1,0 +1,133 @@
+/* ─────────────────────────────────────────────────────────────
+   Atlas of Warmth — page styling
+   Change the variables first; the rest builds on them.
+   Map colours (land, borders, points, shading) are in js/config.js.
+   ───────────────────────────────────────────────────────────── */
+
+:root {
+  --space: #0d0c0b;             /* page background behind the globe */
+  --ink: #f4e9dc;               /* main text */
+  --ink-dim: #a39888;           /* secondary text */
+  --ink-faint: #6b6157;         /* IDs, coordinates */
+  --accent: #e8662a;            /* ember orange */
+  --panel-bg: rgba(20, 18, 16, 0.92);
+  --panel-line: #3a342e;
+  --panel-width: 380px;
+  --radius: 2px;
+
+  --font-display: 'Instrument Serif', 'Times New Roman', serif;
+  --font-body: 'Instrument Serif', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* One filter applied to every type image, e.g. grayscale(1) contrast(1.1) sepia(0.3) */
+  --image-filter: none;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--space); color: var(--ink); }
+body { font-family: var(--font-body); overflow: hidden; }
+#map { position: absolute; inset: 0; }
+button { font: inherit; color: inherit; }
+
+/* ── Control panel ───────────────────────────────────────── */
+.controls {
+  position: absolute; top: 16px; left: 16px; z-index: 2;
+  width: 230px; padding: 16px 16px 14px;
+  background: var(--panel-bg); border: 1px solid var(--panel-line); border-radius: var(--radius);
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em;
+  backdrop-filter: blur(6px);
+}
+.title { font-family: var(--font-display); font-weight: 400; font-size: 28px; line-height: 1; margin: 0 0 4px; letter-spacing: 0; }
+.count { color: var(--ink-dim); margin: 0 0 14px; }
+.control-group { margin-bottom: 10px; }
+.control-label { display: block; color: var(--ink-faint); text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.1em; margin-bottom: 4px; }
+.segmented { display: flex; border: 1px solid var(--panel-line); border-radius: var(--radius); }
+.segmented button {
+  flex: 1; padding: 5px 6px; background: none; border: 0; cursor: pointer;
+  font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim);
+}
+.segmented button + button { border-left: 1px solid var(--panel-line); }
+.segmented button.active { background: var(--ink); color: var(--space); }
+.check { display: flex; gap: 7px; align-items: center; margin: 12px 0 12px; color: var(--ink-dim); cursor: pointer; }
+.check input { accent-color: var(--accent); margin: 0; }
+.legend { display: flex; gap: 14px; color: var(--ink-dim); padding-top: 10px; border-top: 1px solid var(--panel-line); }
+.legend span { display: flex; align-items: center; gap: 6px; }
+.swatch { display: inline-block; width: 12px; height: 12px; }
+.swatch.core { background: var(--accent); opacity: 0.7; }
+.swatch.fringe { background: repeating-linear-gradient(45deg, var(--accent) 0 1.5px, transparent 1.5px 4px); }
+
+/* ── Clusters (merged points) ────────────────────────────── */
+.cluster {
+  --size: 30px;
+  width: var(--size); height: var(--size); border-radius: 50%;
+  display: grid; place-items: center; cursor: pointer;
+  background: var(--accent); color: var(--space);
+  border: 2px solid var(--space); box-shadow: 0 0 0 1px var(--accent);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  transition: transform 0.15s;
+}
+.cluster:hover { transform: scale(1.12); }
+
+/* ── Side panels ─────────────────────────────────────────── */
+.panel {
+  position: absolute; top: 16px; right: 16px; bottom: 16px; z-index: 3;
+  width: var(--panel-width); max-width: calc(100vw - 32px);
+  background: var(--panel-bg); border: 1px solid var(--panel-line); border-radius: var(--radius);
+  backdrop-filter: blur(6px);
+  display: flex; flex-direction: column;
+}
+.panel[hidden] { display: none; }
+.panel.story { right: calc(16px + var(--panel-width) + 10px); }
+.panel-body { overflow-y: auto; padding: 20px 22px 24px; }
+.close {
+  position: absolute; top: 8px; right: 10px; z-index: 1;
+  background: var(--panel-bg); border: 0; cursor: pointer; font-size: 22px; line-height: 1; color: var(--ink-dim);
+  width: 28px; height: 28px; border-radius: 50%;
+}
+.close:hover { color: var(--ink); }
+
+.type-image { margin: -20px -22px 18px; aspect-ratio: 4 / 3; background: #1d1a17; overflow: hidden; }
+.type-image img { width: 100%; height: 100%; object-fit: cover; display: block; filter: var(--image-filter); }
+.type-image.empty { display: grid; place-items: center; color: var(--ink-faint); font-family: var(--font-mono); font-size: 11px; border-bottom: 1px solid var(--panel-line); }
+
+.family { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin: 0 0 8px; }
+.translit { font-family: var(--font-display); font-weight: 400; font-size: 38px; line-height: 1.02; margin: 0; }
+.native { font-size: 24px; color: var(--ink-dim); margin: 4px 0 0; line-height: 1.2; }
+.type-name { font-style: italic; font-size: 17px; line-height: 1.3; color: var(--ink-dim); margin: 12px 0 18px; }
+
+.fields { margin: 0; }
+.fields dt { font-family: var(--font-mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-faint); margin-top: 14px; }
+.fields dd { margin: 4px 0 0; font-size: 16px; line-height: 1.4; }
+
+.stories { margin-top: 20px; }
+.stories h2, .list-title { font-family: var(--font-mono); font-weight: 400; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-faint); margin: 0 0 6px; }
+.stories ul, .type-list { list-style: none; margin: 0; padding: 0; }
+.stories li, .type-list li { border-top: 1px solid var(--panel-line); }
+.stories button, .type-list button {
+  width: 100%; text-align: left; background: none; border: 0; padding: 8px 0; cursor: pointer;
+  font-family: var(--font-body); font-size: 17px; color: var(--ink);
+}
+.stories button::after { content: ' →'; color: var(--accent); }
+.stories button:hover, .type-list button:hover { color: var(--accent); }
+.stories .missing { color: var(--ink-faint); font-family: var(--font-mono); font-size: 11px; padding: 8px 0; }
+.type-list small { display: block; font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); }
+
+.meta { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); margin-top: 24px; }
+
+.story-title { font-family: var(--font-display); font-weight: 400; font-size: 32px; line-height: 1.05; margin: 0 0 14px; }
+.story-text { font-size: 17px; line-height: 1.5; white-space: pre-wrap; }
+
+/* ── Messages (loading / errors) ─────────────────────────── */
+.message {
+  position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 4;
+  padding: 10px 16px; background: var(--panel-bg); border: 1px solid var(--panel-line);
+  font-family: var(--font-mono); font-size: 12px; max-width: 80vw;
+}
+
+/* Hide the MapLibre logo/attribution (borders: Natural Earth, public domain) */
+.maplibregl-ctrl-logo { display: none !important; }
+
+@media (max-width: 760px) {
+  .controls { width: auto; right: 16px; }
+  .panel, .panel.story { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 62vh; }
+}
