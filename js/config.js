@@ -12,6 +12,7 @@ export default {
     types: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSisp-A30FUq5SYzZc99_S1lDcQU7IEPai58C95VTVTsYEZvuOvC-r0hoLQwF9Y3aenVgKruYcGKvf3/pub?gid=1467989397&single=true&output=csv',
     cases: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSisp-A30FUq5SYzZc99_S1lDcQU7IEPai58C95VTVTsYEZvuOvC-r0hoLQwF9Y3aenVgKruYcGKvf3/pub?gid=207720304&single=true&output=csv',
     countries: 'data/countries.geojson',
+    ocean: 'data/ocean.geojson',       // only drawn over the climate underlay, to keep coastlines crisp
     borders: 'data/borders.json',
     regions: 'data/regions/',          // region shapes per country (US-CA, IT-88 …), see tools/build_regions.py      // land-border lengths between neighbours, used for inferred gaps
   },
@@ -59,6 +60,18 @@ export default {
     quality: 0.82,           // JPG quality, 0–1
   },
 
+  // Climate underlays (built by tools/build_climate.py from WorldClim 2.1).
+  climate: {
+    start: 'none',           // 'none', 'hdd' or 'continentality'
+    opacity: 0.85,
+    folder: 'data/climate/',
+    layers: {
+      hdd: { label: 'Heating', title: 'Heating degree days (base 18 °C, per year)', low: '0', high: '10 000+' },
+      continentality: { label: 'Continental', title: 'Continentality (Conrad index)', low: 'maritime', high: 'continental' },
+    },
+    credit: 'Climate: WorldClim 2.1, 1970–2000 (Fick & Hijmans 2017). Heating degree days estimated from seasonal means.',
+  },
+
   // How the map starts and behaves.
   view: {
     projection: 'globe',     // 'globe' or 'mercator' (flat)
@@ -87,6 +100,7 @@ export default {
     coreOpacity: 0.55,
     fringe: '#8d9dc9',       // fringe countries get diagonal hatching in this colour
     fringeOpacity: 0.7,
+    areaOutline: 1.6,        // outline round the selected type's area (fringe gets a thinner dashed one)
     atmosphere: false,       // true = soft blue glow round the globe's edge
   },
 

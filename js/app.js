@@ -279,11 +279,31 @@ function addLayers(countries) {
   const none = ['in', ['get', 'iso'], ['literal', []]];
   map.addLayer({ id: 'graticule', type: 'line', source: 'graticule', paint: { 'line-color': T.graticule, 'line-width': 0.6 } });
   map.addLayer({ id: 'land', type: 'fill', source: 'countries', paint: { 'fill-color': T.land } });
+  // Climate underlays: Web Mercator images covering the whole world, hidden until chosen.
+  for (const name of Object.keys(CONFIG.climate.layers)) {
+    map.addSource(`climate-${name}`, {
+      type: 'image', url: `${CONFIG.climate.folder}${name}.webp`,
+      coordinates: [[-180, 85.0511], [180, 85.0511], [180, -85.0511], [-180, -85.0511]],
+    });
+    map.addLayer({
+      id: `climate-${name}`, type: 'raster', source: `climate-${name}`,
+      layout: { visibility: 'none' },
+      paint: { 'raster-opacity': CONFIG.climate.opacity, 'raster-fade-duration': 0, 'raster-resampling': 'linear' },
+    });
+  }
+  // Sea drawn over the climate images, so coastlines stay crisp (Natural Earth 1:50m ocean).
+  map.addSource('ocean', { type: 'geojson', data: CONFIG.data.ocean });
+  map.addLayer({ id: 'ocean-mask', type: 'fill', source: 'ocean', layout: { visibility: 'none' }, paint: { 'fill-color': T.ocean } });
   map.addLayer({ id: 'fringe', type: 'fill', source: 'countries', filter: none, paint: { 'fill-pattern': 'hatch' } });
   map.addLayer({ id: 'core', type: 'fill', source: 'countries', filter: none, paint: { 'fill-color': T.core, 'fill-opacity': T.coreOpacity } });
   map.addSource('regions', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
   map.addLayer({ id: 'region-fringe', type: 'fill', source: 'regions', filter: ['==', ['get', 'role'], 'fringe'], paint: { 'fill-pattern': 'hatch' } });
   map.addLayer({ id: 'region-core', type: 'fill', source: 'regions', filter: ['==', ['get', 'role'], 'core'], paint: { 'fill-color': T.core, 'fill-opacity': T.coreOpacity } });
+  // Outlines of the selected type's area, so it stays readable over a climate underlay.
+  map.addLayer({ id: 'core-line', type: 'line', source: 'countries', filter: none, paint: { 'line-color': T.core, 'line-width': T.areaOutline } });
+  map.addLayer({ id: 'fringe-line', type: 'line', source: 'countries', filter: none, paint: { 'line-color': T.fringe, 'line-width': T.areaOutline * 0.6, 'line-dasharray': [2, 1.5] } });
+  map.addLayer({ id: 'region-core-line', type: 'line', source: 'regions', filter: ['==', ['get', 'role'], 'core'], paint: { 'line-color': T.core, 'line-width': T.areaOutline } });
+  map.addLayer({ id: 'region-fringe-line', type: 'line', source: 'regions', filter: ['==', ['get', 'role'], 'fringe'], paint: { 'line-color': T.fringe, 'line-width': T.areaOutline * 0.6, 'line-dasharray': [2, 1.5] } });
   map.addLayer({ id: 'borders', type: 'line', source: 'countries', paint: { 'line-color': T.border, 'line-width': T.borderWidth } });
   map.addLayer({ id: 'country-selected', type: 'line', source: 'countries', filter: none, paint: { 'line-color': T.selectedRing, 'line-width': 1.4 } });
   map.addLayer({
@@ -355,6 +375,12 @@ async function openCluster(clusterId, coords) {
 }
 
 // ── Selection and panels ───────────────────────────────────
+function setArea(core, fringe) {
+  const f = (list) => ['in', ['get', 'iso'], ['literal', list]];
+  map.setFilter('core', f(core)); map.setFilter('core-line', f(core));
+  map.setFilter('fringe', f(fringe)); map.setFilter('fringe-line', f(fringe));
+}
+
 // Countries shaded as "less prevalent / likely" because they sit inside the type's area.
 // Countries listed only by region count as neighbours, but are never filled in whole.
 function gapsFor(type) {
@@ -371,8 +397,7 @@ async function select(id, { fly = true } = {}) {
   state.selected = id;
   state.country = null;
   map.setFilter('country-selected', ['in', ['get', 'iso'], ['literal', []]]);
-  map.setFilter('core', ['in', ['get', 'iso'], ['literal', expandIso(type.core)]]);
-  map.setFilter('fringe', ['in', ['get', 'iso'], ['literal', [...expandIso(type.fringe), ...gapsFor(type)]]]);
+  setArea(expandIso(type.core), [...expandIso(type.fringe), ...gapsFor(type)]);
   map.setFilter('selected', ['==', ['get', 'id'], id]);
   map.getSource('regions').setData({ type: 'FeatureCollection', features: [] });
   renderType(type);
@@ -422,8 +447,7 @@ function clearSelection() {
   state.selected = null;
   state.country = null;
   const none = ['in', ['get', 'iso'], ['literal', []]];
-  map.setFilter('core', none);
-  map.setFilter('fringe', none);
+  setArea([], []);
   map.setFilter('country-selected', none);
   map.getSource('regions').setData({ type: 'FeatureCollection', features: [] });
   map.setFilter('selected', ['==', ['get', 'id'], '']);
@@ -528,6 +552,30 @@ function openStory(cid) {
 }
 function closeStory() { $('story').hidden = true; }
 
+// ── Climate underlay ───────────────────────────────────────
+const climate = { current: CONFIG.climate.start, opacity: CONFIG.climate.opacity, legend: null };
+function applyClimate() {
+  for (const name of Object.keys(CONFIG.climate.layers)) {
+    if (!map.getLayer(`climate-${name}`)) continue;
+    map.setLayoutProperty(`climate-${name}`, 'visibility', name === climate.current ? 'visible' : 'none');
+    map.setPaintProperty(`climate-${name}`, 'raster-opacity', climate.opacity);
+  }
+  if (map.getLayer('ocean-mask')) map.setLayoutProperty('ocean-mask', 'visibility', CONFIG.climate.layers[climate.current] ? 'visible' : 'none');
+  document.querySelectorAll('[data-climate]').forEach((b) => b.classList.toggle('active', b.dataset.climate === climate.current));
+  const layer = CONFIG.climate.layers[climate.current];
+  $('climate-detail').hidden = !layer;
+  $('credit').hidden = !layer;
+  if (!layer) return;
+  $('credit').textContent = CONFIG.climate.credit;
+  $('climate-title').textContent = layer.title;
+  $('climate-low').textContent = layer.low;
+  $('climate-high').textContent = layer.high;
+  $('climate-opacity').value = climate.opacity;
+  const stops = climate.legend?.[climate.current]?.stops;
+  if (stops) $('climate-bar').style.background = `linear-gradient(to right, ${stops.map(([p, c]) => `${c} ${p * 100}%`).join(', ')})`;
+}
+$('climate-opacity').addEventListener('input', (e) => { climate.opacity = Number(e.target.value); applyClimate(); });
+
 // ── Controls ───────────────────────────────────────────────
 function syncControls() {
   document.querySelectorAll('[data-projection]').forEach((b) => b.classList.toggle('active', b.dataset.projection === V.projection));
@@ -546,6 +594,7 @@ document.addEventListener('click', (e) => {
   if (!t) return;
   if (t.dataset.projection) { V.projection = t.dataset.projection; applyProjection(); syncControls(); }
   if (t.dataset.onclick) { V.onClick = t.dataset.onclick; syncControls(); }
+  if (t.dataset.climate) { climate.current = t.dataset.climate; applyClimate(); }
   if (t.dataset.case) openStory(t.dataset.case);
   if (t.dataset.type) select(t.dataset.type);
   if (t.dataset.close === 'panel') clearSelection();
@@ -573,6 +622,7 @@ async function start() {
       loadCSV(CONFIG.data.cases).catch((err) => { console.warn('Cases not loaded:', err); return { rows: [], headers: [] }; }),
       fetch(CONFIG.data.countries).then((r) => r.json()),
       fetch(CONFIG.data.borders).then((r) => r.json()).then((b) => { state.borders = b; }).catch(() => {}),
+      fetch(`${CONFIG.climate.folder}legend.json`).then((r) => r.json()).then((x) => { climate.legend = x; }).catch(() => {}),
       fetch(`${CONFIG.data.regions}index.json`).then((r) => r.json()).then((x) => { state.regionIndex = x; }).catch(() => {}),
     ]);
   } catch (err) {
@@ -591,6 +641,7 @@ async function start() {
   applyProjection();
   {
     addLayers(countries);
+    applyClimate();
     map.on('render', () => { if (map.getSource('types') && map.isSourceLoaded('types')) updateClusters(); });
     map.on('click', 'points-hit', (e) => select(e.features[0].properties.id));
     map.on('mouseenter', 'points-hit', () => { map.getCanvas().style.cursor = 'pointer'; });

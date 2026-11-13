@@ -32,6 +32,20 @@
         <button type="button" data-onclick="stay">Stay</button>
       </div>
     </div>
+    <div class="control-group">
+      <span class="control-label">Climate underlay</span>
+      <div class="segmented" role="group" aria-label="Climate underlay">
+        <button type="button" data-climate="none">None</button>
+        <button type="button" data-climate="hdd">Heating</button>
+        <button type="button" data-climate="continentality">Continental</button>
+      </div>
+      <div class="climate-detail" id="climate-detail" hidden>
+        <p class="climate-title" id="climate-title"></p>
+        <div class="climate-bar" id="climate-bar"></div>
+        <div class="climate-ends"><span id="climate-low"></span><span id="climate-high"></span></div>
+        <label class="climate-opacity">Opacity <input type="range" id="climate-opacity" min="0" max="1" step="0.05"></label>
+      </div>
+    </div>
     <label class="check"><input type="checkbox" id="filter-stories"> Only types with stories</label>
     <div class="legend">
       
@@ -53,6 +67,7 @@
   </aside>
 
   <div id="message" class="message" hidden></div>
+  <p id="credit" class="credit" hidden></p>
 
   <script type="module" src="js/app.js"></script>
 </body>

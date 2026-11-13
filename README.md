@@ -40,6 +40,17 @@ Images are stored in colour and shown in greyscale on the page.
 To apply one look to all images without editing them, change `--image-filter` in `css/style.css`
 (e.g. `grayscale(1) contrast(1.1)`).
 
+## Climate underlays
+
+Switch them in the control panel. Both are built by `tools/build_climate.py` from WorldClim 2.1
+(10-minute bioclimatic variables, 1970–2000 means, CC BY 4.0 – credit shown on the map):
+
+- **Heating** – heating degree days per year, base 18 °C: how much heating a year's weather asks for.
+  Estimated from each place's annual, warmest-quarter and coldest-quarter mean temperatures (a sine-shaped year),
+  so mild-winter places come out slightly low. Dark = cold, pale = little or no heating needed.
+- **Continental** – Conrad's continentality index (0 maritime → 100 extremely continental), from the
+  summer–winter range corrected for latitude.
+
 ## Changing the look
 
 | What | Where |
@@ -56,6 +67,7 @@ To apply one look to all images without editing them, change `--image-filter` in
 - `css/style.css` – styling
 - `data/countries.geojson` – country borders (Natural Earth 1:50m, public domain), with `iso` codes
 - `data/borders.json` – land-border lengths and directions between neighbours (for inferred gaps)
+- `data/climate/` – climate underlay images and legend; `data/ocean.geojson` – sea drawn over them for crisp coasts
 - `data/regions/` – region shapes per country (Natural Earth admin-1, 1:10m, simplified), loaded only when needed;
   rebuild with `tools/build_regions.py`
 - `lib/` – MapLibre GL JS 6.18 (BSD licence) and Papa Parse 5.5 (MIT), kept here so the page has no outside dependencies apart from the sheet and Google Fonts
