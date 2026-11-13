@@ -100,7 +100,7 @@ export default {
     maxZoom: 9,
     flatLatitudes: [-60, 84],  // flat map: southern and northern limit (−60 hides Antarctica); also stops zooming out past one world width
     onClick: 'fit',          // 'fit' = zoom to the type's countries, 'stay' = keep the current view
-    clusterRadius: 26,       // how close points must be (in pixels) to merge into a cluster
+    clusterRadius: 20,       // how close points must be (in pixels) to merge into a cluster
     clusterMaxZoom: 8,       // above this zoom, points never cluster
     // Small areas: when a selected type's whole area is smaller on screen than smallArea pixels
     // (its longest side), zoom in until it reaches about smallAreaTarget pixels (never past smallAreaMaxZoom).
