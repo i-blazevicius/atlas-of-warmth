@@ -32,6 +32,9 @@ export default {
     cases: 'Linked cases',
   },
 
+  // Only text in the "Linked cases" column that looks like a case ID is used (W001, W12 …); notes around it are ignored.
+  caseIdPattern: '\\bW\\d+\\b',
+
   caseColumns: {
     id: 'ID',
     title: 'Case name',
@@ -66,13 +69,13 @@ export default {
     border: '#6b6157',
     borderWidth: 0.6,
     graticule: '#2a2622',
-    point: '#e8662a',
+    point: '#7a8bd6',
     pointStroke: '#0d0c0b',
     pointRadius: 6.5,       // dot size; clicks also register a few pixels around it
     selectedRing: '#f4e9dc',
-    core: '#e8662a',
+    core: '#7a8bd6',
     coreOpacity: 0.55,
-    fringe: '#e8662a',       // fringe countries get diagonal hatching in this colour
+    fringe: '#7a8bd6',       // fringe countries get diagonal hatching in this colour
     fringeOpacity: 0.7,
     atmosphere: false,       // true = soft blue glow round the globe's edge
   },

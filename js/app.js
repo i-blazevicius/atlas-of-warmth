@@ -70,7 +70,7 @@ function parseTypes({ rows, headers }) {
       period: get(row, 'period'),
       core: splitList(get(row, 'core')).map((x) => x.toUpperCase()),
       fringe: splitList(get(row, 'fringe')).map((x) => x.toUpperCase()),
-      cases: splitList(get(row, 'cases')),
+      cases: [...new Set(get(row, 'cases').match(new RegExp(CONFIG.caseIdPattern, 'g')) ?? [])],
     });
   }
   return types;
