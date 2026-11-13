@@ -14,6 +14,7 @@ export default {
     countries: 'data/countries.geojson',
     ocean: 'data/ocean.geojson',       // only drawn over the climate underlay, to keep coastlines crisp
     borders: 'data/borders.json',
+    credits: 'data/credits.json',      // image credits, written by the upload page
     regions: 'data/regions/',          // region shapes per country (US-CA, IT-88 …), see tools/build_regions.py      // land-border lengths between neighbours, used for inferred gaps
   },
 
@@ -24,6 +25,7 @@ export default {
     id: 'Type ID',
     family: 'Family',
     name: 'Type name',
+    search: 'Search phrase',
     translit: 'Transliterated name',
     native: 'Native script name',
     form: 'Form in brief',
@@ -56,6 +58,7 @@ export default {
   // Upload page (upload.html): where images are committed, and how they are shrunk first.
   github: { owner: 'i-blazevicius', repo: 'atlas-of-warmth', branch: 'main' },
   imageUpload: {
+    commonsResults: 18,      // how many Wikimedia Commons results the picker shows per search
     maxSize: 1600,           // longest side in pixels (1080 is fine for the panel; 1600 leaves room to zoom later)
     quality: 0.82,           // JPG quality, 0–1
   },

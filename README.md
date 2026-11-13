@@ -36,6 +36,13 @@ Use the upload page: **https://i-blazevicius.github.io/atlas-of-warmth/upload.ht
   version; the map shows them a minute or two later. Without a token they are downloaded, already renamed,
   for uploading by hand (github.com → images → Add file → Upload files).
 
+- **find on Commons** (on each row) searches Wikimedia Commons with the type's search phrase, native name and
+  transliteration. Click a result to save it: the image is shrunk and renamed, and its author, licence and
+  source link go into `data/credits.json`. Other words can be searched in the box.
+- For an image found elsewhere, type its credit in the row's credit field, then drop the image on the row
+  (or click the thumbnail). "Save credit only" changes the credit of an image already there.
+- Credits show as a small linked line under the image on the map. Removing an image removes its credit.
+
 Images are stored in colour and shown in greyscale on the page.
 To apply one look to all images without editing them, change `--image-filter` in `css/style.css`
 (e.g. `grayscale(1) contrast(1.1)`).
@@ -67,6 +74,7 @@ Switch them in the control panel. Both are built by `tools/build_climate.py` fro
 - `css/style.css` – styling
 - `data/countries.geojson` – country borders (Natural Earth 1:50m, public domain), with `iso` codes
 - `data/borders.json` – land-border lengths and directions between neighbours (for inferred gaps)
+- `data/credits.json` – image credits (written by the upload page)
 - `data/climate/` – climate underlay images and legend; `data/ocean.geojson` – sea drawn over them for crisp coasts
 - `data/regions/` – region shapes per country (Natural Earth admin-1, 1:10m, simplified), loaded only when needed;
   rebuild with `tools/build_regions.py`

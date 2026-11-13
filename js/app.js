@@ -503,7 +503,17 @@ function loadImage(id, figure) {
     }
     const img = new Image();
     img.alt = '';
-    img.onload = () => { if (state.selected === id) { figure.replaceChildren(img); } };
+    img.onload = () => {
+      if (state.selected !== id) return;
+      figure.replaceChildren(img);
+      const c = state.credits?.[id];
+      if (c) {
+        const cap = document.createElement('figcaption');
+        const label = c.text ?? [c.author, c.licence].filter(Boolean).join(' · ');
+        cap.innerHTML = c.source ? `<a href="${esc(c.source)}" target="_blank" rel="noopener">${esc(label)}</a>` : esc(label);
+        figure.append(cap);
+      }
+    };
     img.onerror = tryNext;
     img.src = `${CONFIG.images.folder}${id}.${ext}`;
   };
@@ -628,6 +638,7 @@ async function start() {
       loadCSV(CONFIG.data.types),
       loadCSV(CONFIG.data.cases).catch((err) => { console.warn('Cases not loaded:', err); return { rows: [], headers: [] }; }),
       fetch(CONFIG.data.countries).then((r) => r.json()),
+      fetch(CONFIG.data.credits, { cache: 'no-store' }).then((r) => r.json()).then((c) => { state.credits = c; }).catch(() => {}),
       fetch(CONFIG.data.borders).then((r) => r.json()).then((b) => { state.borders = b; }).catch(() => {}),
       fetch(`${CONFIG.climate.folder}legend.json`).then((r) => r.json()).then((x) => { climate.legend = x; }).catch(() => {}),
       fetch(`${CONFIG.data.regions}index.json`).then((r) => r.json()).then((x) => { state.regionIndex = x; }).catch(() => {}),
