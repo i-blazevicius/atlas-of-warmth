@@ -92,6 +92,12 @@ export default {
     credit: 'Climate: WorldClim 2.1, monthly means 1970–2000 (Fick & Hijmans 2017).',
   },
 
+  // Experiments (both easy to switch off). Can also be tried for one visit from the address bar:
+  //   …/atlas-of-warmth/?cards=float      …/atlas-of-warmth/?flat=equalearth
+  cards: 'panel',            // 'panel' = one card docked on the right; 'float' = up to maxCards cards beside their dots
+  maxCards: 5,
+  flatProjection: 'mercator', // 'mercator' or 'equalEarth' for the flat map
+
   // How the map starts and behaves.
   view: {
     projection: 'globe',     // 'globe' or 'mercator' (flat)

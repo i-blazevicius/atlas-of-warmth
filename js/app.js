@@ -2,6 +2,18 @@ import * as maplibregl from '../lib/maplibre-gl.mjs';
 // config.js is loaded with the same cache-busting query as this file.
 const CONFIG = (await import(`./config.js${new URL(import.meta.url).search}`)).default;
 
+// Address-bar overrides for the experiments: ?cards=float, ?flat=equalearth (or =mercator / =panel).
+{
+  const q = new URLSearchParams(location.search);
+  if (q.get('cards')) CONFIG.cards = q.get('cards');
+  if (q.get('flat')) CONFIG.flatProjection = /equal/i.test(q.get('flat')) ? 'equalEarth' : 'mercator';
+}
+const FLOAT = CONFIG.cards === 'float';
+if (FLOAT) document.body.classList.add('float-cards');
+
+// Map coordinates of a real [lon, lat]. Identity, unless the flat map uses Equal Earth (see below).
+let mapCoords = (c) => c;
+
 const T = CONFIG.theme;
 const V = { ...CONFIG.view };
 const $ = (id) => document.getElementById(id);
@@ -597,9 +609,12 @@ async function switchName(i, { fly = true } = {}) {
   if (!type || !type.names[i]) return;
   state.nameIndex = i;
   markDots(type.id, i);
-  const scroll = $('panel-body').scrollTop;
-  renderType(type, i);
-  $('panel-body').scrollTop = scroll;
+  if (FLOAT) showCard(type, i);
+  else {
+    const scroll = $('panel-body').scrollTop;
+    renderType(type, i);
+    $('panel-body').scrollTop = scroll;
+  }
   if (!fly || V.onClick !== 'fit') return;
   const n = type.names[i];
   const id = type.id;
@@ -614,7 +629,8 @@ async function select(id, { fly = true, name = null } = {}) {
   const type = state.byId.get(id);
   if (!type) return;
   // Clicking another dot (or name) of the type that is already open just switches names.
-  if (state.selected === id && name !== null && name >= 0 && !$('panel').hidden) { switchName(name, { fly }); return; }
+  const open = FLOAT ? !!cardFor(id) : !$('panel').hidden;
+  if (state.selected === id && name !== null && name >= 0 && open) { switchName(name, { fly }); return; }
   state.selected = id;
   state.nameIndex = name ?? (type.names.length ? 0 : -1);
   state.country = null;
@@ -623,7 +639,8 @@ async function select(id, { fly = true, name = null } = {}) {
   refreshDots();
   markDots(id, state.nameIndex);
   map.getSource('regions').setData({ type: 'FeatureCollection', features: [] });
-  renderType(type, state.nameIndex);
+  if (FLOAT) { $('panel').hidden = true; showCard(type, state.nameIndex); }
+  else renderType(type, state.nameIndex);
   closeStory();
   history.replaceState(null, '', `#${id}`);
 
@@ -648,7 +665,7 @@ function fitIfNeeded(bounds, boxes = [], dot = null) {
   const narrow = window.innerWidth < 760;
   const padding = narrow
     ? { top: 40, bottom: window.innerHeight * 0.62 + 20, left: 40, right: 40 }
-    : { top: 60, bottom: 60, left: 280, right: panel.width + 60 };
+    : { top: 60, bottom: 60, left: 280, right: (FLOAT ? 0 : panel.width) + 60 };
   // On the flat map, use the copy of the world nearest to the current view.
   let shift = 0;
   if (V.projection === 'mercator') {
@@ -702,11 +719,12 @@ function clearSelection() {
   map.getSource('regions').setData({ type: 'FeatureCollection', features: [] });
   if (map.getSource('types')) refreshDots();
   $('panel').hidden = true;
+  if (FLOAT) closeAllCards();
   closeStory();
   history.replaceState(null, '', location.pathname + location.search);
 }
 
-function renderType(t, nameIndex = -1) {
+function renderType(t, nameIndex = -1, body = $('panel-body')) {
   const caseItems = t.cases.map((cid) => {
     const row = state.cases.get(cid);
     const title = row && state.caseCols.title ? row[state.caseCols.title] : '';
@@ -721,8 +739,8 @@ function renderType(t, nameIndex = -1) {
   const others = t.names.length > 1 || (t.names.length === 1 && t.names[0].name !== (t.translit || t.name))
     ? `<p class="also-known">${t.names.map((n, i) => `<button type="button" data-name="${i}" class="${i === nameIndex ? 'current' : ''}" title="${esc(n.language)}${n.note ? ' · ' + esc(n.note) : ''}">${esc(n.name)}<span>${esc(n.where.slice(0, 2).join(' '))}${n.where.length > 2 ? '…' : ''}</span></button>`).join('')}</p>`
     : '';
-  $('panel-body').innerHTML = `
-    <figure class="type-image" id="type-image"></figure>
+  body.innerHTML = `
+    <figure class="type-image"></figure>
     ${t.family ? `<p class="family">${esc(t.family)}</p>` : ''}
     <h1 class="translit">${esc(shown.name)}</h1>
     ${showNative ? `<p class="native">${esc(shown.native)}</p>` : ''}
@@ -735,16 +753,83 @@ function renderType(t, nameIndex = -1) {
     </dl>
     ${t.cases.length ? `<section class="stories"><h2>Stories</h2><ul>${caseItems}</ul></section>` : ''}
     <p class="meta">${esc(t.id)} · ${Math.abs(t.lat)}° ${t.lat < 0 ? 'S' : 'N'}, ${Math.abs(t.lon)}° ${t.lon < 0 ? 'W' : 'E'}</p>`;
-  $('panel').hidden = false;
-  $('panel-body').scrollTop = 0;
-  loadImage(t.id, $('type-image'));
+  if (body === $('panel-body')) { $('panel').hidden = false; body.scrollTop = 0; }
+  loadImage(t.id, body.querySelector('.type-image'));
+}
+
+// ── Floating cards (CONFIG.cards = 'float') ────────────────
+// Each open type gets a small card beside its dot; up to CONFIG.maxCards at once. Opening one more
+// closes the oldest, and a card closes when its dot leaves the screen. The newest/clicked card is the
+// "current" type: its area is shaded and its dots coloured.
+const cards = [];   // { id, n, marker, el }
+function cardFor(id) { return cards.find((c) => c.id === id); }
+function showCard(t, n) {
+  let card = cardFor(t.id);
+  if (!card) {
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML = `<button type="button" class="close" data-close-card aria-label="Close">×</button><div class="card-body"></div>`;
+    el.dataset.type = t.id;
+    // Keep map gestures and clicks from passing through a card to the map; handle its clicks here.
+    for (const ev of ['mousedown', 'mouseup', 'pointerdown', 'pointerup', 'touchstart', 'touchend', 'wheel', 'dblclick']) {
+      el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+    }
+    el.addEventListener('click', (e) => { e.stopPropagation(); onClick(e); });
+    const wrap = document.createElement('div');
+    wrap.className = 'card-anchor';
+    wrap.append(el);
+    card = { id: t.id, n, el, marker: null };
+    card.marker = new maplibregl.Marker({ element: wrap, anchor: 'left' }).setLngLat([0, 0]).addTo(map);
+    cards.push(card);
+    while (cards.length > (CONFIG.maxCards ?? 5)) closeCard(cards[0]);
+  } else {
+    cards.splice(cards.indexOf(card), 1); cards.push(card); // newest last
+  }
+  card.n = n;
+  renderType(t, n, card.el.querySelector('.card-body'));
+  const pt = map.project(mapCoords(dotPositions.get(`${t.id}:${n}`) ?? [t.lon, t.lat]));
+  const right = pt.x < map.getCanvas().clientWidth * 0.62;
+  const down = pt.y < map.getCanvas().clientHeight * 0.5;
+  card.marker.remove();
+  // Hang the card from the dot's corner, towards the side (and up or down) with more room.
+  const anchor = `${down ? 'top' : 'bottom'}-${right ? 'left' : 'right'}`;
+  card.marker = new maplibregl.Marker({ element: card.marker.getElement(), anchor, offset: [right ? 14 : -14, down ? -14 : 14] })
+    .setLngLat(mapCoords(dotPositions.get(`${t.id}:${n}`) ?? [t.lon, t.lat])).addTo(map);
+  // The current card on top, older ones below in order.
+  cards.forEach((c, i) => {
+    c.el.classList.toggle('current', c === card);
+    c.marker.getElement().style.zIndex = c === card ? 20 : 10 + i;
+  });
+}
+function closeCard(card, { reselect = true } = {}) {
+  const i = cards.indexOf(card);
+  if (i < 0) return;
+  cards.splice(i, 1);
+  card.marker.remove();
+  if (state.selected === card.id) {
+    const next = cards[cards.length - 1];
+    if (next && reselect) select(next.id, { name: next.n, fly: false });
+    else clearSelection();
+  }
+}
+function closeAllCards() { while (cards.length) { const c = cards.pop(); c.marker.remove(); } }
+// Close cards whose dot has left the screen (or gone round the back of the globe).
+function pruneCards() {
+  if (!cards.length) return;
+  const w = map.getCanvas().clientWidth, h = map.getCanvas().clientHeight;
+  for (const c of [...cards]) {
+    const ll = c.marker.getLngLat();
+    const p = map.project(ll);
+    const off = p.x < 0 || p.y < 0 || p.x > w || p.y > h || map.transform?.isLocationOccluded?.(ll);
+    if (off) closeCard(c);
+  }
 }
 
 // Try images/T014.jpg, .jpeg, .png, .webp in turn.
 function loadImage(id, figure) {
   const exts = [...CONFIG.images.extensions];
   const tryNext = () => {
-    if (state.selected !== id) return;
+    if (!figure.isConnected) return;
     const ext = exts.shift();
     if (!ext) {
       if (CONFIG.images.showEmptySlot) { figure.classList.add('empty'); figure.textContent = `no image yet · ${id}`; }
@@ -754,7 +839,7 @@ function loadImage(id, figure) {
     const img = new Image();
     img.alt = '';
     img.onload = () => {
-      if (state.selected !== id) return;
+      if (!figure.isConnected) return;
       figure.replaceChildren(img);
       const c = state.credits?.[id];
       if (c) {
@@ -858,7 +943,17 @@ function updateCount() {
   $('count').textContent = shown === state.types.length ? `${shown} types` : `${shown} of ${state.types.length} types`;
 }
 
-document.addEventListener('click', (e) => {
+document.addEventListener('click', (e) => onClick(e));
+function onClick(e) {
+  const cardEl = e.target.closest('.card');
+  if (cardEl) {
+    const card = cardFor(cardEl.dataset.type);
+    if (e.target.closest('[data-close-card]')) { closeCard(card); return; }
+    if (card && state.selected !== card.id) {
+      select(card.id, { name: card.n, fly: false });
+      if (!e.target.closest('button')) return;
+    }
+  }
   const t = e.target.closest('button');
   if (!t) return;
   if (t.dataset.projection) { V.projection = t.dataset.projection; applyProjection(); syncControls(); }
@@ -869,7 +964,7 @@ document.addEventListener('click', (e) => {
   if (t.dataset.name !== undefined && state.selected) switchName(Number(t.dataset.name));
   if (t.dataset.close === 'panel') clearSelection();
   if (t.dataset.close === 'story') closeStory();
-});
+}
 function refilter() {
   refreshDots();
   updateCount();
@@ -944,6 +1039,7 @@ async function start() {
     refreshDots();
     applyClimate();
     map.on('render', () => { if (map.getSource('types') && map.isSourceLoaded('types')) { updateClusters(); nudgeSelected(); } });
+    if (FLOAT) map.on('moveend', pruneCards);
     for (const layer of ['points-hit']) {
       map.on('click', layer, (e) => {
         const p = e.features[0].properties;
