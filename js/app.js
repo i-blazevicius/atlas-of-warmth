@@ -453,6 +453,32 @@ function updateClusters() {
   for (const [key, marker] of clustersOnScreen) if (!next.has(key)) marker.remove();
   clustersOnScreen = next;
 }
+
+// If an open-type dot lands on a cluster bubble, push it out to the bubble's edge so it isn't
+// mistaken for part of the cluster.
+function nudgeSelected() {
+  if (!selectedMarkers.length) return;
+  const bubbles = [...clustersOnScreen.values()].map((m) => ({
+    p: map.project(m.getLngLat()),
+    r: parseFloat(m.getElement().style.getPropertyValue('--size')) / 2 || 15,
+  }));
+  for (const m of selectedMarkers) {
+    const p = map.project(m.getLngLat());
+    let offset = [0, 0];
+    for (const b of bubbles) {
+      const dx = p.x - b.p.x, dy = p.y - b.p.y;
+      const d = Math.hypot(dx, dy);
+      const need = b.r + 12; // bubble radius + half the dot + a gap
+      if (d >= need) continue;
+      // Direction away from the bubble's centre (straight up-right if they coincide).
+      const ux = d > 0.5 ? dx / d : 0.7071, uy = d > 0.5 ? dy / d : -0.7071;
+      offset = [ux * need - dx, uy * need - dy];
+      break;
+    }
+    const cur = m.getOffset();
+    if (Math.abs(cur.x - offset[0]) > 0.5 || Math.abs(cur.y - offset[1]) > 0.5) m.setOffset(offset);
+  }
+}
 function resetClusters() {
   for (const m of clustersOnScreen.values()) m.remove();
   clustersOnScreen = new Map();
@@ -839,7 +865,7 @@ async function start() {
   {
     addLayers(countries);
     applyClimate();
-    map.on('render', () => { if (map.getSource('types') && map.isSourceLoaded('types')) updateClusters(); });
+    map.on('render', () => { if (map.getSource('types') && map.isSourceLoaded('types')) { updateClusters(); nudgeSelected(); } });
     for (const layer of ['points-hit']) {
       map.on('click', layer, (e) => {
         const p = e.features[0].properties;

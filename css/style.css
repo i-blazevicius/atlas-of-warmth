@@ -94,7 +94,7 @@ button { font: inherit; color: inherit; }
   z-index: 3;   /* above the cluster bubbles */
 }
 .dot-selected.active {
-  outline: 1.5px solid var(--accent); outline-offset: 3.5px;
+  outline: 2.5px solid var(--accent); outline-offset: 3px;
   z-index: 4;
 }
 
