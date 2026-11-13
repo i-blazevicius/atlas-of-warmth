@@ -74,6 +74,19 @@ Switch them in the control panel. Both are built by `tools/build_climate.py` fro
 | Fonts, panels, control panel, clusters, legend | `css/style.css` (variables at the top) |
 | Control panel contents | `index.html` |
 
+## Experiments (off by default)
+
+Two trial features, switched in `js/config.js` or just for one visit through the address bar:
+
+| Feature | config.js | Try it with |
+|---|---|---|
+| Floating cards: up to 5 open at once, each hanging off its dot; the oldest closes when a 6th opens, and a card closes when its dot leaves the screen. Click a card to bring it to the front. | `cards: 'float'` (`maxCards: 5`) | `?cards=float` |
+| Equal Earth on the flat map (the globe stays as it is). | `flatProjection: 'equalEarth'` | `?flat=equalearth` |
+
+Both together: `…/atlas-of-warmth/?cards=float&flat=equalearth`. To go back, set the values to `'panel'` and `'mercator'` (the defaults). The branch `before-experiments` keeps the site as it was before either was added.
+
+Equal Earth uses its own climate images (`data/climate/*-ee.webp`), made by `tools/build_climate.py` alongside the normal ones.
+
 ## Files
 
 - `index.html` – the page

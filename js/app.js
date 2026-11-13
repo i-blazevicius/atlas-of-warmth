@@ -11,8 +11,73 @@ const CONFIG = (await import(`./config.js${new URL(import.meta.url).search}`)).d
 const FLOAT = CONFIG.cards === 'float';
 if (FLOAT) document.body.classList.add('float-cards');
 
-// Map coordinates of a real [lon, lat]. Identity, unless the flat map uses Equal Earth (see below).
-let mapCoords = (c) => c;
+// ── Equal Earth on the flat map (experiment) ───────────────
+// MapLibre only draws Web Mercator, so every coordinate is moved to where Equal Earth would put it and
+// written back as a "fake" longitude/latitude that Mercator then draws in that spot. Data is kept in real
+// coordinates; mapCoords / toMap convert just before handing things to the map.
+const EE = { A1: 1.340264, A2: -0.081106, A3: 0.000893, A4: 0.003796, M: Math.sqrt(3) / 2 };
+EE.xmax = Math.PI / (EE.M * EE.A1);
+const rad = Math.PI / 180;
+function eeForward([lon, lat]) {
+  const k = Math.round(lon / 360), l = (lon - 360 * k) * rad; // keep whole-world shifts as they are
+  const th = Math.asin(EE.M * Math.sin(Math.max(-90, Math.min(90, lat)) * rad)), t2 = th * th, t6 = t2 * t2 * t2;
+  const x = (2 * Math.sqrt(3) * l * Math.cos(th)) / (3 * (EE.A1 + 3 * EE.A2 * t2 + t6 * (7 * EE.A3 + 9 * EE.A4 * t2)));
+  const y = th * (EE.A1 + EE.A2 * t2 + t6 * (EE.A3 + EE.A4 * t2));
+  return [(x / EE.xmax) * 180 + 360 * k, (2 * Math.atan(Math.exp((y * Math.PI) / EE.xmax)) - Math.PI / 2) / rad];
+}
+function eeInverse([lonF, latF]) {
+  const k = Math.round(lonF / 360);
+  const x = ((lonF - 360 * k) / 180) * EE.xmax;
+  const y = (Math.log(Math.tan(Math.PI / 4 + (latF * rad) / 2)) * EE.xmax) / Math.PI;
+  let th = y / EE.A1;
+  for (let i = 0; i < 12; i++) {
+    const t2 = th * th, t6 = t2 * t2 * t2;
+    const f = th * (EE.A1 + EE.A2 * t2 + t6 * (EE.A3 + EE.A4 * t2)) - y;
+    th -= f / (EE.A1 + 3 * EE.A2 * t2 + t6 * (7 * EE.A3 + 9 * EE.A4 * t2));
+  }
+  const t2 = th * th, t6 = t2 * t2 * t2;
+  const l = (3 * x * (EE.A1 + 3 * EE.A2 * t2 + t6 * (7 * EE.A3 + 9 * EE.A4 * t2))) / (2 * Math.sqrt(3) * Math.cos(th));
+  return [l / rad + 360 * k, Math.asin(Math.max(-1, Math.min(1, Math.sin(th) / EE.M))) / rad];
+}
+let eeOn = false; // true while the flat map is showing Equal Earth
+const mapCoords = (c) => (eeOn ? eeForward(c) : c);
+// Convert a GeoJSON object for the map, adding points along long edges (Equal Earth bends meridians).
+function toMap(geo, step = 1) {
+  if (!eeOn || !geo) return geo;
+  const line = (cs) => {
+    const out = [];
+    cs.forEach((c, i) => {
+      if (i) {
+        const p = cs[i - 1], n = Math.ceil(Math.max(Math.abs(c[0] - p[0]), Math.abs(c[1] - p[1])) / step);
+        for (let j = 1; j < n; j++) out.push(eeForward([p[0] + ((c[0] - p[0]) * j) / n, p[1] + ((c[1] - p[1]) * j) / n]));
+      }
+      out.push(eeForward(c));
+    });
+    return out;
+  };
+  const geom = (g) => {
+    if (!g) return g;
+    switch (g.type) {
+      case 'Point': return { ...g, coordinates: eeForward(g.coordinates) };
+      case 'MultiPoint': return { ...g, coordinates: g.coordinates.map(eeForward) };
+      case 'LineString': return { ...g, coordinates: line(g.coordinates) };
+      case 'MultiLineString': case 'Polygon': return { ...g, coordinates: g.coordinates.map(line) };
+      case 'MultiPolygon': return { ...g, coordinates: g.coordinates.map((p) => p.map(line)) };
+      case 'GeometryCollection': return { ...g, geometries: g.geometries.map(geom) };
+      default: return g;
+    }
+  };
+  if (geo.type === 'FeatureCollection') return { ...geo, features: geo.features.map((f) => ({ ...f, geometry: geom(f.geometry) })) };
+  if (geo.type === 'Feature') return { ...geo, geometry: geom(geo.geometry) };
+  return geom(geo);
+}
+// Box [w, s, e, n] in real degrees → the box it covers on the map (sampled, since edges bend).
+function boxToMap([w, s, e, n]) {
+  if (!eeOn) return [w, s, e, n];
+  const pts = [];
+  for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) pts.push(eeForward([w + ((e - w) * i) / 4, s + ((n - s) * j) / 4]));
+  return [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];
+}
 
 const T = CONFIG.theme;
 const V = { ...CONFIG.view };
@@ -321,7 +386,7 @@ function computeDotPositions() {
 function dotFeatures(t) {
   return rawDots(t).map(([n, c]) => ({
     type: 'Feature', properties: { id: t.id, n },
-    geometry: { type: 'Point', coordinates: dotPositions.get(`${t.id}:${n}`) ?? c },
+    geometry: { type: 'Point', coordinates: mapCoords(dotPositions.get(`${t.id}:${n}`) ?? c) },
   }));
 }
 // The open type's dots are kept out of the clusters (drawn from their own source) so they stay visible.
@@ -401,7 +466,7 @@ const map = new maplibregl.Map({
 const mercY = (lat) => (1 - Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) / Math.PI) / 2;
 const mercLat = (f) => (360 / Math.PI) * Math.atan(Math.exp(Math.PI * (1 - 2 * f))) - 90;
 function flatConstrain(lngLat, zoom) {
-  const [south, north] = V.flatLatitudes;
+  const [south, north] = V.flatLatitudes.map((lat) => mapCoords([0, lat])[1]);
   const top = mercY(north), bottom = mercY(south);
   const { clientWidth: w, clientHeight: h } = map.getCanvas();
   const minZoom = Math.max(Math.log2(w / 512), Math.log2(h / (512 * (bottom - top))));
@@ -412,10 +477,35 @@ function flatConstrain(lngLat, zoom) {
 }
 
 function applyProjection() {
+  const real = eeOn ? eeInverse(map.getCenter().toArray()) : map.getCenter().toArray();
+  const ee = V.projection === 'mercator' && CONFIG.flatProjection === 'equalEarth';
   map.setProjection({ type: V.projection });
+  if (ee !== eeOn) {
+    eeOn = ee;
+    if (map.getSource('countries')) redrawGeometry();
+  }
   // No tilting or turning on either view (right-drag, two-finger twist or tilt).
   map.setTransformConstrain(V.projection === 'mercator' ? flatConstrain : null);
-  map.jumpTo({ center: map.getCenter(), zoom: map.getZoom() }); // re-apply limits now
+  map.jumpTo({ center: mapCoords(real), zoom: map.getZoom() }); // re-apply limits now
+}
+// Climate image placement: Web Mercator images, or the Equal Earth ones when that is on.
+function climateImage(name) {
+  if (!eeOn) return { url: `${CONFIG.climate.folder}${name}.webp`, coordinates: [[-180, 85.0511], [180, 85.0511], [180, -85.0511], [-180, -85.0511]] };
+  const top = eeForward([0, 90])[1];
+  return { url: `${CONFIG.climate.folder}${name}-ee.webp`, coordinates: [[-180, top], [180, top], [180, -top], [-180, -top]] };
+}
+// Hand every shape to the map again after switching between Mercator and Equal Earth.
+function redrawGeometry() {
+  map.getSource('countries').setData(toMap(state.countriesGeo));
+  map.getSource('ocean').setData(toMap(state.oceanGeo) ?? { type: 'FeatureCollection', features: [] });
+  map.getSource('graticule').setData(toMap(graticule()));
+  map.getSource('regions').setData(toMap(state.regionsGeo));
+  for (const name of Object.keys(CONFIG.climate.layers)) map.getSource(`climate-${name}`).updateImage(climateImage(name));
+  refreshDots();
+  for (const c of cards) {
+    const t = state.byId.get(c.id);
+    c.marker.setLngLat(mapCoords(dotPositions.get(`${c.id}:${c.n}`) ?? [t.lon, t.lat]));
+  }
 }
 
 map.dragRotate.disable();
@@ -428,8 +518,8 @@ document.body.style.background = T.space;
 
 function addLayers(countries) {
   map.addImage('hatch', hatchImage(T.fringe, T.fringeOpacity), { pixelRatio: HATCH.ratio });
-  map.addSource('graticule', { type: 'geojson', data: graticule() });
-  map.addSource('countries', { type: 'geojson', data: countries });
+  map.addSource('graticule', { type: 'geojson', data: toMap(graticule()) });
+  map.addSource('countries', { type: 'geojson', data: toMap(countries) });
   map.addSource('types', {
     type: 'geojson', data: featureCollection(),
     cluster: true, clusterRadius: V.clusterRadius, clusterMaxZoom: V.clusterMaxZoom,
@@ -439,10 +529,7 @@ function addLayers(countries) {
   map.addLayer({ id: 'land', type: 'fill', source: 'countries', paint: { 'fill-color': T.land } });
   // Climate underlays: Web Mercator images covering the whole world, hidden until chosen.
   for (const name of Object.keys(CONFIG.climate.layers)) {
-    map.addSource(`climate-${name}`, {
-      type: 'image', url: `${CONFIG.climate.folder}${name}.webp`,
-      coordinates: [[-180, 85.0511], [180, 85.0511], [180, -85.0511], [-180, -85.0511]],
-    });
+    map.addSource(`climate-${name}`, { type: 'image', ...climateImage(name) });
     map.addLayer({
       id: `climate-${name}`, type: 'raster', source: `climate-${name}`,
       layout: { visibility: 'none' },
@@ -450,7 +537,7 @@ function addLayers(countries) {
     });
   }
   // Sea drawn over the climate images, so coastlines stay crisp (Natural Earth 1:50m ocean).
-  map.addSource('ocean', { type: 'geojson', data: CONFIG.data.ocean });
+  map.addSource('ocean', { type: 'geojson', data: toMap(state.oceanGeo) ?? { type: 'FeatureCollection', features: [] } });
   map.addLayer({ id: 'ocean-mask', type: 'fill', source: 'ocean', layout: { visibility: 'none' }, paint: { 'fill-color': T.ocean } });
   map.addLayer({ id: 'fringe', type: 'fill', source: 'countries', filter: none, paint: { 'fill-pattern': 'hatch' } });
   map.addLayer({ id: 'core', type: 'fill', source: 'countries', filter: none, paint: { 'fill-color': T.core, 'fill-opacity': T.coreOpacity } });
@@ -638,7 +725,8 @@ async function select(id, { fly = true, name = null } = {}) {
   setArea(expandIso(type.core), [...expandIso(type.fringe), ...gapsFor(type)]);
   refreshDots();
   markDots(id, state.nameIndex);
-  map.getSource('regions').setData({ type: 'FeatureCollection', features: [] });
+  state.regionsGeo = { type: 'FeatureCollection', features: [] };
+  map.getSource('regions').setData(state.regionsGeo);
   if (FLOAT) { $('panel').hidden = true; showCard(type, state.nameIndex); }
   else renderType(type, state.nameIndex);
   closeStory();
@@ -649,7 +737,8 @@ async function select(id, { fly = true, name = null } = {}) {
     ...(await regionFeatures(regionsOf(type.fringe), 'fringe')),
   ];
   if (state.selected !== id) return; // another type was clicked meanwhile
-  map.getSource('regions').setData({ type: 'FeatureCollection', features: regions });
+  state.regionsGeo = { type: 'FeatureCollection', features: regions };
+  map.getSource('regions').setData(toMap(state.regionsGeo));
   if (fly && V.onClick === 'fit') {
     const n = type.names[state.nameIndex];
     fitIfNeeded(boundsFor(type, regions), boxesFor(type, regions), dotPositions.get(`${type.id}:${state.nameIndex}`) ?? [type.lon, type.lat]);
@@ -666,6 +755,13 @@ function fitIfNeeded(bounds, boxes = [], dot = null) {
   const padding = narrow
     ? { top: 40, bottom: window.innerHeight * 0.62 + 20, left: 40, right: 40 }
     : { top: 60, bottom: 60, left: 280, right: (FLOAT ? 0 : panel.width) + 60 };
+  // Equal Earth: work with where things are drawn, not their real coordinates.
+  if (eeOn) {
+    const [w, s, e, n] = boxToMap([bounds[0][0], bounds[0][1], bounds[1][0], bounds[1][1]]);
+    bounds = [[w, s], [e, n]];
+    boxes = boxes.map(boxToMap);
+    if (dot) dot = eeForward(dot);
+  }
   // On the flat map, use the copy of the world nearest to the current view.
   let shift = 0;
   if (V.projection === 'mercator') {
@@ -716,7 +812,8 @@ function clearSelection() {
   const none = ['in', ['get', 'iso'], ['literal', []]];
   setArea([], []);
   map.setFilter('country-selected', none);
-  map.getSource('regions').setData({ type: 'FeatureCollection', features: [] });
+  state.regionsGeo = { type: 'FeatureCollection', features: [] };
+  map.getSource('regions').setData(state.regionsGeo);
   if (map.getSource('types')) refreshDots();
   $('panel').hidden = true;
   if (FLOAT) closeAllCards();
@@ -1006,6 +1103,7 @@ async function start() {
       loadCSV(CONFIG.data.cases).catch((err) => { console.warn('Cases not loaded:', err); return { rows: [], headers: [] }; }),
       fetch(CONFIG.data.countries).then((r) => r.json()),
       (CONFIG.data.names ? loadCSV(CONFIG.data.names) : Promise.resolve(null)).catch((err) => { console.warn('Names not loaded:', err); return null; }),
+      fetch(CONFIG.data.ocean).then((r) => r.json()).then((x) => { state.oceanGeo = x; }).catch(() => {}),
       fetch(CONFIG.data.labels).then((r) => r.json()).then((x) => { state.labels = x; }).catch(() => {}),
       fetch(CONFIG.data.credits, { cache: 'no-store' }).then((r) => r.json()).then((c) => { state.credits = c; }).catch(() => {}),
       fetch(CONFIG.data.borders).then((r) => r.json()).then((b) => { state.borders = b; }).catch(() => {}),
@@ -1020,6 +1118,7 @@ async function start() {
   state.types = parseTypes(typesCSV);
   state.byId = new Map(state.types.map((t) => [t.id, t]));
   state.cases = parseCases(casesCSV);
+  state.countriesGeo = countries;
   state.countryShapes = new Map();
   for (const f of countries.features) {
     if (!state.countryShapes.has(f.properties.iso)) state.countryShapes.set(f.properties.iso, []);

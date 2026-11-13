@@ -68,6 +68,33 @@ def to_mercator(grid):
     cols = np.clip(((np.arange(WIDTH) + 0.5) / WIDTH * w).astype(int), 0, w - 1)
     return grid[rows][:, cols]
 
+# Equal Earth (Šavrič, Patterson & Jenny 2018), used for the map's optional Equal Earth flat view.
+A1, A2, A3, A4 = 1.340264, -0.081106, 0.000893, 0.003796
+M = np.sqrt(3) / 2
+EE_XMAX = np.pi / (M * A1)
+EE_YMAX = (lambda t: t * (A1 + A2 * t**2 + t**6 * (A3 + A4 * t**2)))(np.arcsin(M))
+
+def to_equal_earth(grid):
+    """Resample a lat/lon grid to a regular grid in the Equal Earth plane (outside the outline: NaN)."""
+    width = WIDTH
+    height = int(round(width * EE_YMAX / EE_XMAX))
+    x = ((np.arange(width) + 0.5) / width * 2 - 1) * EE_XMAX
+    y = (1 - (np.arange(height) + 0.5) / height * 2) * EE_YMAX
+    X, Y = np.meshgrid(x, y)
+    t = Y / A1                                   # Newton iterations for θ from y
+    for _ in range(12):
+        f = t * (A1 + A2 * t**2 + t**6 * (A3 + A4 * t**2)) - Y
+        df = A1 + 3 * A2 * t**2 + t**6 * (7 * A3 + 9 * A4 * t**2)
+        t = t - f / df
+    lam = M * X * (A1 + 3 * A2 * t**2 + t**6 * (7 * A3 + 9 * A4 * t**2)) / np.cos(t)
+    phi = np.arcsin(np.clip(np.sin(t) / M, -1, 1))
+    lon, lat = np.degrees(lam), np.degrees(phi)
+    rows = np.clip(((90 - lat) / 180 * h).astype(int), 0, h - 1)
+    cols = np.clip(((lon + 180) / 360 * w).astype(int), 0, w - 1)
+    out = grid[rows, cols]
+    out[np.abs(lon) > 180] = np.nan
+    return out
+
 def ramp(stops, values, vmin, vmax):
     """stops: list of (0..1, '#rrggbb'). Returns RGBA uint8, NaN transparent."""
     pos = np.array([s[0] for s in stops])
@@ -92,6 +119,8 @@ meta = {}
 for name, (grid, stops, vmin, vmax) in LAYERS.items():
     img = Image.fromarray(ramp(stops, to_mercator(spread(grid)), vmin, vmax), 'RGBA')
     img.save(os.path.join(OUT, f'{name}.webp'), 'WEBP', quality=85, method=6)
+    img = Image.fromarray(ramp(stops, to_equal_earth(spread(grid)), vmin, vmax), 'RGBA')
+    img.save(os.path.join(OUT, f'{name}-ee.webp'), 'WEBP', quality=85, method=6)
     meta[name] = {'min': vmin, 'max': vmax, 'stops': stops}
 json.dump(meta, open(os.path.join(OUT, 'legend.json'), 'w'))
 
