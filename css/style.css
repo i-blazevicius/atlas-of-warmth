@@ -9,7 +9,7 @@
   --ink: #f4e9dc;               /* main text */
   --ink-dim: #a39888;           /* secondary text */
   --ink-faint: #6b6157;         /* IDs, coordinates */
-  --accent: #8d9dc9;            /* soft blue for interface accents (earlier: ember orange #e8662a) */
+  --accent: #f52261;            /* interface accents (map value: theme.activeDot in config.js) */
   --node: #f4e9dc;              /* map dots and clusters: off-white reads on every climate palette */
   --area: #8a8177;              /* type area shading in the legend (map values: theme.core / theme.fringe in config.js) */
   --panel-bg: rgba(20, 18, 16, 0.92);
@@ -17,12 +17,19 @@
   --panel-width: 380px;
   --radius: 2px;
 
-  --font-display: 'Source Serif 4', 'Noto Serif', Georgia, serif;   /* runner-up: 'Crimson Pro' */
-  --font-body: 'Source Serif 4', 'Noto Serif', Georgia, serif;
-  --weight-display: 300;
+  /* Fonts. The earlier serif look is kept in css/theme-backup.css. */
+  --font-display: 'Noto Sans Display', 'Noto Sans', system-ui, sans-serif;   /* names and titles */
+  --font-body: 'Noto Sans', system-ui, sans-serif;                          /* running text */
+  --font-ui: 'Noto Sans', system-ui, sans-serif;                            /* controls, labels, small print */
+  --font-native: 'Noto Sans', 'Noto Sans SC', 'Noto Sans JP', 'Noto Sans KR', 'Noto Sans Armenian', 'Noto Sans Georgian', 'Noto Sans Gurmukhi', 'Noto Sans Devanagari', 'Noto Sans Arabic', 'Noto Sans Canadian Aboriginal', sans-serif;
+  --weight-display: 500;
   --weight-body: 400;
-  --font-native: 'Noto Serif', 'Noto Serif SC', 'Noto Serif JP', 'Noto Serif KR', 'Noto Serif Armenian', 'Noto Serif Georgian', 'Noto Serif Gurmukhi', 'Noto Serif Devanagari', 'Noto Naskh Arabic', 'Noto Sans Canadian Aboriginal', serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --body-size: 14px;          /* running text in the panels */
+  /* Small labels (View, Form, Period of use, family…) */
+  --label-case: none;         /* 'uppercase' for capitals */
+  --label-tracking: 0;
+  --label-size: 11px;
+  --label-weight: 500;
 
   /* One filter applied to every type image, e.g. grayscale(1) contrast(1.1) sepia(0.3) */
   --image-filter: grayscale(1);
@@ -39,17 +46,17 @@ button { font: inherit; color: inherit; }
   position: absolute; top: 16px; left: 16px; z-index: 2;
   width: 230px; padding: 16px 16px 14px;
   background: var(--panel-bg); border: 1px solid var(--panel-line); border-radius: var(--radius);
-  font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.02em;
+  font-family: var(--font-ui); font-size: 11.5px;
   backdrop-filter: blur(6px);
 }
 .title { font-family: var(--font-display); font-weight: var(--weight-display); font-size: 26px; line-height: 1; margin: 0 0 4px; letter-spacing: 0; }
 .count { color: var(--ink-dim); margin: 0 0 14px; }
 .control-group { margin-bottom: 10px; }
-.control-label { display: block; color: var(--ink-faint); text-transform: uppercase; font-size: 9.5px; letter-spacing: 0.1em; margin-bottom: 4px; }
+.control-label { display: block; color: var(--ink-faint); text-transform: var(--label-case); font-size: var(--label-size); letter-spacing: var(--label-tracking); font-weight: var(--label-weight); margin-bottom: 4px; }
 .segmented { display: flex; border: 1px solid var(--panel-line); border-radius: var(--radius); }
 .segmented button {
   flex: 1; padding: 5px 6px; background: none; border: 0; cursor: pointer;
-  font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim);
+  font-family: var(--font-ui); font-size: 11px; color: var(--ink-dim);
 }
 .segmented button + button { border-left: 1px solid var(--panel-line); }
 .segmented button.active { background: var(--ink); color: var(--space); }
@@ -71,7 +78,7 @@ button { font: inherit; color: inherit; }
 .climate-opacity input { flex: 1; min-width: 0; width: 100%; margin: 0; accent-color: var(--accent); }
 .credit {
   position: absolute; left: 16px; bottom: 10px; z-index: 2; margin: 0; max-width: 60vw;
-  font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-faint);
+  font-family: var(--font-ui); font-size: 9.5px; color: var(--ink-faint);
 }
 
 /* ── Clusters (merged points) ────────────────────────────── */
@@ -81,7 +88,7 @@ button { font: inherit; color: inherit; }
   display: grid; place-items: center; cursor: pointer;
   background: var(--node); color: var(--space);
   border: 1.5px solid var(--space);
-  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+  font-family: var(--font-ui); font-size: 10px; font-weight: 500;
 }
 /* No transform/transition on .cluster itself: the map moves markers with transform, and a transition makes them lag. */
 
@@ -132,53 +139,53 @@ button { font: inherit; color: inherit; }
 .type-image figcaption {
   position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 10px 5px;
   background: linear-gradient(transparent, rgba(13, 12, 11, 0.85));
-  font-family: var(--font-mono); font-size: 9.5px; color: var(--ink-dim); line-height: 1.3;
+  font-family: var(--font-ui); font-size: 9.5px; color: var(--ink-dim); line-height: 1.3;
 }
 .type-image figcaption a { color: inherit; text-decoration: none; }
 .type-image figcaption a:hover { color: var(--ink); text-decoration: underline; }
-.type-image.empty { aspect-ratio: 4 / 3; display: grid; place-items: center; color: var(--ink-faint); font-family: var(--font-mono); font-size: 11px; border-bottom: 1px solid var(--panel-line); }
+.type-image.empty { aspect-ratio: 4 / 3; display: grid; place-items: center; color: var(--ink-faint); font-family: var(--font-ui); font-size: 11px; border-bottom: 1px solid var(--panel-line); }
 
-.family { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin: 0 0 8px; }
-.translit { font-family: var(--font-display); font-weight: var(--weight-display); font-size: 34px; line-height: 1.08; letter-spacing: -0.01em; margin: 0; }
-.native { font-family: var(--font-native); font-size: 22px; color: var(--ink-dim); margin: 4px 0 0; line-height: 1.2; }
-.language { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); margin: 6px 0 0; letter-spacing: 0.04em; }
+.family { font-family: var(--font-ui); font-size: var(--label-size); text-transform: var(--label-case); letter-spacing: var(--label-tracking); font-weight: var(--label-weight); color: var(--accent); margin: 0 0 8px; }
+.translit { font-family: var(--font-display); font-weight: var(--weight-display); font-size: 30px; line-height: 1.1; letter-spacing: -0.01em; margin: 0; }
+.native { font-family: var(--font-native); font-size: 20px; color: var(--ink-dim); margin: 4px 0 0; line-height: 1.2; }
+.language { font-family: var(--font-ui); font-size: 11px; color: var(--ink-faint); margin: 6px 0 0; }
 .also-known { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 12px 0 0; }
 .also-known button {
   background: none; border: 1px solid var(--panel-line); border-radius: var(--radius); cursor: pointer;
-  padding: 3px 7px; font-family: var(--font-body); font-size: 14px; color: var(--ink-dim);
+  padding: 3px 7px; font-family: var(--font-body); font-size: 13px; color: var(--ink-dim);
 }
-.also-known button span { font-family: var(--font-mono); font-size: 9px; color: var(--ink-faint); margin-left: 5px; }
+.also-known button span { font-family: var(--font-ui); font-size: 9px; color: var(--ink-faint); margin-left: 5px; }
 .also-known button:hover { color: var(--ink); border-color: var(--ink-faint); }
 .also-known button.current { color: var(--ink); border-color: var(--accent); }
-.type-name { font-style: italic; font-size: 16px; line-height: 1.3; color: var(--ink-dim); margin: 12px 0 18px; }
+.type-name { font-style: italic; font-size: var(--body-size); line-height: 1.3; color: var(--ink-dim); margin: 12px 0 18px; }
 
 .fields { margin: 0; }
-.fields dt { font-family: var(--font-mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-faint); margin-top: 14px; }
-.fields dd { margin: 4px 0 0; font-size: 15px; line-height: 1.4; }
+.fields dt { font-family: var(--font-ui); font-size: var(--label-size); text-transform: var(--label-case); letter-spacing: var(--label-tracking); font-weight: var(--label-weight); color: var(--ink-faint); margin-top: 14px; }
+.fields dd { margin: 4px 0 0; font-size: var(--body-size); line-height: 1.4; }
 
 .stories { margin-top: 20px; }
-.stories h2, .list-title { font-family: var(--font-mono); font-weight: 400; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-faint); margin: 0 0 6px; }
+.stories h2, .list-title { font-family: var(--font-ui); font-weight: var(--label-weight); font-size: var(--label-size); text-transform: var(--label-case); letter-spacing: var(--label-tracking); color: var(--ink-faint); margin: 0 0 6px; }
 .stories ul, .type-list { list-style: none; margin: 0; padding: 0; }
 .stories li, .type-list li { border-top: 1px solid var(--panel-line); }
 .stories button, .type-list button {
   width: 100%; text-align: left; background: none; border: 0; padding: 8px 0; cursor: pointer;
-  font-family: var(--font-body); font-weight: var(--weight-body); font-size: 16px; color: var(--ink);
+  font-family: var(--font-body); font-weight: var(--weight-body); font-size: var(--body-size); color: var(--ink);
 }
 .stories button::after { content: ' →'; color: var(--accent); }
 .stories button:hover, .type-list button:hover { color: var(--accent); }
-.stories .missing { color: var(--ink-faint); font-family: var(--font-mono); font-size: 11px; padding: 8px 0; }
-.type-list small { display: block; font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); }
+.stories .missing { color: var(--ink-faint); font-family: var(--font-ui); font-size: 11px; padding: 8px 0; }
+.type-list small { display: block; font-family: var(--font-ui); font-size: 10px; color: var(--ink-faint); }
 
-.meta { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); margin-top: 24px; }
+.meta { font-family: var(--font-ui); font-size: 10px; color: var(--ink-faint); margin-top: 24px; }
 
-.story-title { font-family: var(--font-display); font-weight: var(--weight-display); font-size: 30px; line-height: 1.05; margin: 0 0 14px; }
-.story-text { font-size: 16px; line-height: 1.5; white-space: pre-wrap; }
+.story-title { font-family: var(--font-display); font-weight: var(--weight-display); font-size: 26px; line-height: 1.05; margin: 0 0 14px; }
+.story-text { font-size: var(--body-size); line-height: 1.5; white-space: pre-wrap; }
 
 /* ── Messages (loading / errors) ─────────────────────────── */
 .message {
   position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 4;
   padding: 10px 16px; background: var(--panel-bg); border: 1px solid var(--panel-line);
-  font-family: var(--font-mono); font-size: 12px; max-width: 80vw;
+  font-family: var(--font-ui); font-size: 12px; max-width: 80vw;
 }
 
 /* Hide the MapLibre logo/attribution (borders: Natural Earth, public domain) */
