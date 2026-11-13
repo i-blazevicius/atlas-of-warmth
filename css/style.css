@@ -50,7 +50,7 @@ button { font: inherit; color: inherit; }
 .segmented button.active { background: var(--ink); color: var(--space); }
 .check { display: flex; gap: 7px; align-items: center; margin: 12px 0 12px; color: var(--ink-dim); cursor: pointer; }
 .check input { accent-color: var(--accent); margin: 0; }
-.legend { display: flex; gap: 14px; color: var(--ink-dim); padding-top: 10px; border-top: 1px solid var(--panel-line); }
+.legend { display: flex; flex-direction: column; gap: 6px; color: var(--ink-dim); padding-top: 10px; border-top: 1px solid var(--panel-line); }
 .legend span { display: flex; align-items: center; gap: 6px; }
 .swatch { display: inline-block; width: 12px; height: 12px; }
 .swatch.core { background: var(--accent); opacity: 0.7; }
@@ -64,9 +64,9 @@ button { font: inherit; color: inherit; }
   background: var(--accent); color: var(--space);
   border: 2px solid var(--space); box-shadow: 0 0 0 1px var(--accent);
   font-family: var(--font-mono); font-size: 11px; font-weight: 500;
-  transition: transform 0.15s;
 }
-.cluster:hover { transform: scale(1.12); }
+/* No transform/transition on .cluster itself: the map moves markers with transform, and a transition makes them lag. */
+.cluster:hover { filter: brightness(1.15); box-shadow: 0 0 0 2px var(--accent); }
 
 /* ── Side panels ─────────────────────────────────────────── */
 .panel {
@@ -86,9 +86,10 @@ button { font: inherit; color: inherit; }
 }
 .close:hover { color: var(--ink); }
 
-.type-image { margin: -20px -22px 18px; aspect-ratio: 4 / 3; background: #1d1a17; overflow: hidden; }
-.type-image img { width: 100%; height: 100%; object-fit: cover; display: block; filter: var(--image-filter); }
-.type-image.empty { display: grid; place-items: center; color: var(--ink-faint); font-family: var(--font-mono); font-size: 11px; border-bottom: 1px solid var(--panel-line); }
+.type-image { margin: -20px -22px 18px; background: #1d1a17; overflow: hidden; }
+/* The frame takes the image's own proportions; very tall images are capped */
+.type-image img { width: 100%; height: auto; max-height: 70vh; object-fit: contain; display: block; filter: var(--image-filter); }
+.type-image.empty { aspect-ratio: 4 / 3; display: grid; place-items: center; color: var(--ink-faint); font-family: var(--font-mono); font-size: 11px; border-bottom: 1px solid var(--panel-line); }
 
 .family { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); margin: 0 0 8px; }
 .translit { font-family: var(--font-display); font-weight: 400; font-size: 38px; line-height: 1.02; margin: 0; }

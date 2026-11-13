@@ -182,7 +182,6 @@ const map = new maplibregl.Map({
   zoom: V.zoom,
   maxZoom: V.maxZoom,
   attributionControl: false,
-  renderWorldCopies: false,
 });
 const mapLoaded = new Promise((resolve) => map.once('load', resolve));
 document.body.style.background = T.space;
@@ -207,6 +206,11 @@ function addLayers(countries) {
       'circle-color': T.point, 'circle-radius': T.pointRadius,
       'circle-stroke-color': T.pointStroke, 'circle-stroke-width': 1.5,
     },
+  });
+  // Invisible, larger circle so the dots are easier to click
+  map.addLayer({
+    id: 'points-hit', type: 'circle', source: 'types', filter: ['!', ['has', 'point_count']],
+    paint: { 'circle-radius': T.pointRadius + 6, 'circle-color': '#000', 'circle-opacity': 0 },
   });
   map.addLayer({
     id: 'selected', type: 'circle', source: 'types', filter: ['==', ['get', 'id'], ''],
@@ -435,11 +439,11 @@ async function start() {
   {
     addLayers(countries);
     map.on('render', () => { if (map.getSource('types') && map.isSourceLoaded('types')) updateClusters(); });
-    map.on('click', 'points', (e) => select(e.features[0].properties.id));
-    map.on('mouseenter', 'points', () => { map.getCanvas().style.cursor = 'pointer'; });
-    map.on('mouseleave', 'points', () => { map.getCanvas().style.cursor = ''; });
+    map.on('click', 'points-hit', (e) => select(e.features[0].properties.id));
+    map.on('mouseenter', 'points-hit', () => { map.getCanvas().style.cursor = 'pointer'; });
+    map.on('mouseleave', 'points-hit', () => { map.getCanvas().style.cursor = ''; });
     map.on('click', (e) => {
-      if (!map.queryRenderedFeatures(e.point, { layers: ['points'] }).length && state.selected) clearSelection();
+      if (!map.queryRenderedFeatures(e.point, { layers: ['points-hit'] }).length && state.selected) clearSelection();
     });
     const fromHash = decodeURIComponent(location.hash.slice(1));
     if (fromHash && state.byId.has(fromHash)) select(fromHash);

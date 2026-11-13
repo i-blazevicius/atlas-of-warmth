@@ -68,13 +68,13 @@ export default {
     graticule: '#2a2622',
     point: '#e8662a',
     pointStroke: '#0d0c0b',
-    pointRadius: 5,
+    pointRadius: 6.5,       // dot size; clicks also register a few pixels around it
     selectedRing: '#f4e9dc',
     core: '#e8662a',
     coreOpacity: 0.55,
     fringe: '#e8662a',       // fringe countries get diagonal hatching in this colour
     fringeOpacity: 0.7,
-    atmosphere: true,
+    atmosphere: false,       // true = soft blue glow round the globe's edge
   },
 
   // Some sheet codes differ from the border data's codes. Left: code in the sheet, right: codes to shade.
