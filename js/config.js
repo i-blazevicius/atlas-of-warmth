@@ -116,6 +116,7 @@ export default {
     pointStroke: '#0d0c0b',
     pointRadius: 6.5,       // dot size; clicks also register a few pixels around it
     selectedRing: '#f4e9dc',
+    activeDot: '#8d9dc9',    // the selected dot (filled) and the ring round the same type's other dots
     countryOutline: '#a39888',  // outline of a clicked country
     countryOutlineWidth: 2.4,
     core: '#b8aea2',

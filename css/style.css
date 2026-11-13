@@ -86,6 +86,19 @@ button { font: inherit; color: inherit; }
 /* No transform/transition on .cluster itself: the map moves markers with transform, and a transition makes them lag. */
 .cluster:hover { box-shadow: 0 0 0 2px var(--accent); }
 
+/* ── The open type's dots ─────────────────────────────────
+   Its other places: own fill, accent ring. The one whose name is shown: filled in the accent. */
+.dot-selected {
+  width: 16px; height: 16px; padding: 0; border-radius: 50%; cursor: pointer;
+  background: var(--node); border: 3px solid var(--accent); box-shadow: 0 0 0 1.5px var(--space);
+  z-index: 3;   /* above the cluster bubbles */
+}
+.dot-selected.active {
+  width: 20px; height: 20px; background: var(--accent); border: 3px solid var(--node);
+  box-shadow: 0 0 0 1.5px var(--space), 0 0 0 5px rgba(141, 157, 201, 0.35);
+  z-index: 4;
+}
+
 /* ── Side panels ─────────────────────────────────────────── */
 .panel {
   position: absolute; top: 16px; right: 16px; bottom: 16px; z-index: 3;

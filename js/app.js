@@ -257,15 +257,27 @@ function visibleTypes() {
     (!state.onlyStories || t.cases.length) && (!state.onlyImages || state.images?.has(t.id)));
 }
 
+function dotFeatures(t) {
+  // One dot per local name (types without names keep their single centre dot).
+  const dots = t.names.length ? t.names.map((n, i) => [i, nameDot(t, n)]) : [[-1, [t.lon, t.lat]]];
+  return dots.map(([n, coords]) => ({ type: 'Feature', properties: { id: t.id, n }, geometry: { type: 'Point', coordinates: coords } }));
+}
+// The open type's dots are kept out of the clusters (drawn from their own source) so they stay visible.
+function selectedCollection() {
+  const t = state.byId.get(state.selected);
+  return { type: 'FeatureCollection', features: t ? spreadDots(dotFeatures(t)) : [] };
+}
+
 function featureCollection() {
   const features = [];
   for (const t of visibleTypes()) {
-    // One dot per local name (types without names keep their single centre dot).
-    const dots = t.names.length ? t.names.map((n, i) => [i, nameDot(t, n)]) : [[-1, [t.lon, t.lat]]];
-    for (const [n, coords] of dots) {
-      features.push({ type: 'Feature', properties: { id: t.id, n }, geometry: { type: 'Point', coordinates: coords } });
-    }
+    if (t.id === state.selected) continue;
+    features.push(...dotFeatures(t));
   }
+  return { type: 'FeatureCollection', features: spreadDots(features) };
+}
+
+function spreadDots(features) {
   // Dots placed on exactly the same spot (e.g. several names in one country) are fanned out
   // in a small ring, so they separate when zoomed in.
   const groups = new Map();
@@ -283,7 +295,7 @@ function featureCollection() {
       f.geometry.coordinates = [lon + (r * Math.cos(a)) / Math.cos((lat * Math.PI) / 180), lat + r * Math.sin(a)];
     });
   }
-  return { type: 'FeatureCollection', features };
+  return features;
 }
 
 // ── Map ────────────────────────────────────────────────────
@@ -410,13 +422,6 @@ function addLayers(countries) {
     id: 'points-hit', type: 'circle', source: 'types', filter: ['!', ['has', 'point_count']],
     paint: { 'circle-radius': T.pointRadius + 6, 'circle-color': '#000', 'circle-opacity': 0 },
   });
-  map.addLayer({
-    id: 'selected', type: 'circle', source: 'types', filter: ['==', ['get', 'id'], ''],
-    paint: {
-      'circle-color': 'rgba(0,0,0,0)', 'circle-radius': T.pointRadius + 5,
-      'circle-stroke-color': T.selectedRing, 'circle-stroke-width': 1.5,
-    },
-  });
 }
 
 // Clusters are drawn as HTML elements so they can be styled in CSS (.cluster).
@@ -484,15 +489,60 @@ function gapsFor(type) {
   return type._gaps;
 }
 
+// Mark which of the selected type's dots is the active one.
+// The open type's dots are drawn as HTML elements (like the clusters) so they sit on top of them.
+// Styled in CSS: .dot-selected, and .dot-selected.active for the one whose name is shown.
+let selectedMarkers = [];
+function markDots(id, n) {
+  for (const m of selectedMarkers) m.getElement().classList.toggle('active', Number(m.getElement().dataset.n) === n);
+}
+// Rebuild the clustered dots and the open type's dots (after the open type changes).
+function refreshDots() {
+  resetClusters();
+  map.getSource('types').setData(featureCollection());
+  for (const m of selectedMarkers) m.remove();
+  selectedMarkers = selectedCollection().features.map((f) => {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'dot-selected';
+    el.dataset.n = f.properties.n;
+    const t = state.byId.get(f.properties.id);
+    el.title = displayName(t, f.properties.n).name;
+    el.addEventListener('click', (e) => { e.stopPropagation(); select(f.properties.id, { name: f.properties.n }); });
+    return new maplibregl.Marker({ element: el, opacityWhenCovered: 0 }).setLngLat(f.geometry.coordinates).addTo(map);
+  });
+}
+
+// Switch the open type's card and active dot to another of its names, and fit that name's area.
+async function switchName(i, { fly = true } = {}) {
+  const type = state.byId.get(state.selected);
+  if (!type || !type.names[i]) return;
+  state.nameIndex = i;
+  markDots(type.id, i);
+  const scroll = $('panel-body').scrollTop;
+  renderType(type, i);
+  $('panel-body').scrollTop = scroll;
+  if (!fly || V.onClick !== 'fit') return;
+  const n = type.names[i];
+  const id = type.id;
+  const regions = await regionFeatures(regionsOf(n.where), 'name');
+  if (state.selected !== id || state.nameIndex !== i) return;
+  const [lon, lat] = nameDot(type, n);
+  fitIfNeeded(boundsFor({ lon, lat, core: countriesOf(n.where), fringe: [] }, regions));
+}
+
 async function select(id, { fly = true, name = null } = {}) {
   const type = state.byId.get(id);
   if (!type) return;
+  // Clicking another dot (or name) of the type that is already open just switches names.
+  if (state.selected === id && name !== null && name >= 0 && !$('panel').hidden) { switchName(name, { fly }); return; }
   state.selected = id;
   state.nameIndex = name ?? (type.names.length ? 0 : -1);
   state.country = null;
   map.setFilter('country-selected', ['in', ['get', 'iso'], ['literal', []]]);
   setArea(expandIso(type.core), [...expandIso(type.fringe), ...gapsFor(type)]);
-  map.setFilter('selected', ['==', ['get', 'id'], id]);
+  refreshDots();
+  markDots(id, state.nameIndex);
   map.getSource('regions').setData({ type: 'FeatureCollection', features: [] });
   renderType(type, state.nameIndex);
   closeStory();
@@ -544,7 +594,7 @@ function clearSelection() {
   setArea([], []);
   map.setFilter('country-selected', none);
   map.getSource('regions').setData({ type: 'FeatureCollection', features: [] });
-  map.setFilter('selected', ['==', ['get', 'id'], '']);
+  if (map.getSource('types')) refreshDots();
   $('panel').hidden = true;
   closeStory();
   history.replaceState(null, '', location.pathname + location.search);
@@ -621,7 +671,7 @@ const typeItems = (items) => `<ul class="type-list">${items.map(([t, i]) => {
 }).join('')}</ul>`;
 
 function showList(items) {
-  state.selected = null;
+  if (state.selected) clearSelection();
   $('panel-body').innerHTML = `<p class="list-title">${items.length} types in this spot</p>${typeItems(items)}`;
   $('panel').hidden = false;
 }
@@ -714,19 +764,12 @@ document.addEventListener('click', (e) => {
   if (t.dataset.climate) { climate.current = t.dataset.climate; applyClimate(); }
   if (t.dataset.case) openStory(t.dataset.case);
   if (t.dataset.type) select(t.dataset.type, { name: t.dataset.n !== undefined ? Number(t.dataset.n) : null });
-  if (t.dataset.name !== undefined && state.selected) {
-    state.nameIndex = Number(t.dataset.name);
-    const type = state.byId.get(state.selected);
-    const scroll = $('panel-body').scrollTop;
-    renderType(type, state.nameIndex);
-    $('panel-body').scrollTop = scroll;
-  }
+  if (t.dataset.name !== undefined && state.selected) switchName(Number(t.dataset.name));
   if (t.dataset.close === 'panel') clearSelection();
   if (t.dataset.close === 'story') closeStory();
 });
 function refilter() {
-  resetClusters();
-  map.getSource('types').setData(featureCollection());
+  refreshDots();
   updateCount();
 }
 $('filter-stories').addEventListener('change', (e) => { state.onlyStories = e.target.checked; refilter(); });
@@ -797,12 +840,14 @@ async function start() {
     addLayers(countries);
     applyClimate();
     map.on('render', () => { if (map.getSource('types') && map.isSourceLoaded('types')) updateClusters(); });
-    map.on('click', 'points-hit', (e) => {
-      const p = e.features[0].properties;
-      select(p.id, { name: Number(p.n) });
-    });
-    map.on('mouseenter', 'points-hit', () => { map.getCanvas().style.cursor = 'pointer'; });
-    map.on('mouseleave', 'points-hit', () => { map.getCanvas().style.cursor = ''; });
+    for (const layer of ['points-hit']) {
+      map.on('click', layer, (e) => {
+        const p = e.features[0].properties;
+        select(p.id, { name: Number(p.n) });
+      });
+      map.on('mouseenter', layer, () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', layer, () => { map.getCanvas().style.cursor = ''; });
+    }
     map.on('click', (e) => {
       if (map.queryRenderedFeatures(e.point, { layers: ['points-hit'] }).length) return;
       const land = map.queryRenderedFeatures(e.point, { layers: ['land'] })[0];
@@ -815,4 +860,4 @@ async function start() {
 }
 start();
 
-window.atlas = { map, state, select };
+window.atlas = { map, state, select, selectedCollection };
