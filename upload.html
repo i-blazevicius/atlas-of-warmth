@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Atlas of Warmth · images</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,300..600;1,8..60,300..600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/upload.css">
+  <script src="lib/papaparse.min.js"></script>
+</head>
+<body class="upload-page">
+  <header class="up-head">
+    <div>
+      <h1 class="title">Images</h1>
+      <p class="count" id="summary">loading…</p>
+    </div>
+    <a class="up-back" href="./">← map</a>
+  </header>
+
+  <section class="up-connect" id="connect">
+    <div id="connect-off">
+      <p>Paste a GitHub token to save images straight into the site. Without one, dropped images are
+        shrunk, renamed and downloaded for you to upload by hand.</p>
+      <form class="up-row" onsubmit="return false">
+        <input type="password" id="token" placeholder="github_pat_…" autocomplete="off">
+        <button type="button" id="connect-btn">Connect</button>
+      </form>
+      <details>
+        <summary>How to make a token</summary>
+        <ol>
+          <li>github.com → your picture → Settings → Developer settings → Personal access tokens → <b>Fine-grained tokens</b> → Generate new token.</li>
+          <li>Repository access: <b>Only select repositories</b> → atlas-of-warmth.</li>
+          <li>Permissions → Repository permissions → <b>Contents: Read and write</b>.</li>
+          <li>Generate, copy, paste here. It is kept only in this browser.</li>
+        </ol>
+      </details>
+    </div>
+    <div id="connect-on" hidden>
+      <p>Connected. Images are saved to <code id="repo-name"></code> and appear on the map a minute or two later.
+        <button type="button" class="link" id="disconnect">Forget token</button></p>
+    </div>
+  </section>
+
+  <section class="up-bulk" id="bulk">
+    Drop several images here at once: each is matched by the type ID at the start of its file name
+    (<code>T014.jpg</code>, <code>T014 stove.png</code>). Or drop one image onto a row below.
+  </section>
+
+  <div class="up-tools">
+    <input type="search" id="search" placeholder="Search ID, name, family…">
+    <label class="check"><input type="checkbox" id="missing-only"> Only types without an image</label>
+  </div>
+
+  <ul class="up-list" id="list"></ul>
+  <div id="message" class="message" hidden></div>
+
+  <script type="module" src="js/upload.js"></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+/* Upload page — builds on the variables in style.css */
+body.upload-page { overflow: auto; max-width: 980px; margin: 0 auto; padding: 32px 24px 80px; }
+.up-head { display: flex; justify-content: space-between; align-items: end; margin-bottom: 20px; }
+.up-head .count { margin: 4px 0 0; font-family: var(--font-mono); font-size: 11px; }
+.up-back { color: var(--ink-dim); font-family: var(--font-mono); font-size: 12px; text-decoration: none; }
+.up-back:hover { color: var(--accent); }
+
+.up-connect, .up-bulk { border: 1px solid var(--panel-line); padding: 14px 16px; margin-bottom: 12px; font-size: 15px; line-height: 1.45; }
+.up-connect p { margin: 0 0 10px; }
+.up-connect details { font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); margin-top: 10px; }
+.up-connect ol { padding-left: 18px; line-height: 1.6; }
+.up-row { display: flex; gap: 8px; }
+.up-row input { flex: 1; }
+input[type="password"], input[type="search"] {
+  background: #1a1815; border: 1px solid var(--panel-line); color: var(--ink);
+  padding: 7px 9px; font-family: var(--font-mono); font-size: 12px; border-radius: var(--radius);
+}
+.up-connect button, .up-row button {
+  background: var(--ink); color: var(--space); border: 0; padding: 7px 14px; cursor: pointer;
+  font-family: var(--font-mono); font-size: 12px; border-radius: var(--radius);
+}
+button.link { background: none; color: var(--ink-faint); padding: 0; text-decoration: underline; font-family: var(--font-mono); font-size: 11px; }
+code { font-family: var(--font-mono); font-size: 0.85em; color: var(--accent); }
+
+.up-bulk { border-style: dashed; color: var(--ink-dim); text-align: center; padding: 22px; }
+.up-bulk.over, .up-item.over { border-color: var(--accent); background: rgba(141, 157, 201, 0.08); }
+
+.up-tools { display: flex; gap: 16px; align-items: center; margin: 18px 0 8px; }
+.up-tools input[type="search"] { flex: 1; }
+.up-tools .check { margin: 0; font-family: var(--font-mono); font-size: 11px; }
+
+.up-list { list-style: none; margin: 0; padding: 0; }
+.up-item {
+  display: grid; grid-template-columns: 96px 1fr auto; gap: 16px; align-items: center;
+  padding: 10px; border: 1px solid transparent; border-top-color: var(--panel-line); cursor: pointer;
+}
+.up-item:hover { background: rgba(255, 255, 255, 0.02); }
+.up-thumb {
+  width: 96px; height: 72px; background: #1d1a17; display: grid; place-items: center; overflow: hidden;
+  font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); text-align: center;
+}
+.up-thumb img { width: 100%; height: 100%; object-fit: cover; filter: var(--image-filter); }
+.up-name { font-size: 17px; line-height: 1.2; }
+.up-sub { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); margin-top: 3px; }
+.up-status { font-family: var(--font-mono); font-size: 11px; color: var(--ink-dim); text-align: right; min-width: 120px; }
+.up-status.ok { color: var(--accent); }
+.up-status.err { color: #d67a6a; }
+.up-item input[type="file"] { display: none; }

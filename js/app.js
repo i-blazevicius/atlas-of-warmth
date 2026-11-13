@@ -111,6 +111,20 @@ function computeCountryBoxes(geojson) {
 }
 const union = (p, q) => [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[2], q[2]), Math.max(p[3], q[3])];
 
+// Unlisted neighbours whose land border is mostly shared with the listed countries.
+function inferredGaps(listed) {
+  if (!CONFIG.inferGaps?.on || !state.borders) return [];
+  const set = new Set(listed);
+  const out = [];
+  for (const [iso, neighbours] of Object.entries(state.borders)) {
+    if (set.has(iso)) continue;
+    let total = 0, shared = 0;
+    for (const [n, len] of Object.entries(neighbours)) { total += len; if (set.has(n)) shared += len; }
+    if (total && shared / total >= CONFIG.inferGaps.share) out.push(iso);
+  }
+  return out;
+}
+
 const expandIso = (codes) => codes.flatMap((code) => CONFIG.isoAliases[code] ?? [code]);
 
 // Bounds of a type's countries plus its point, picking whichever side of the antimeridian is tighter.
@@ -274,7 +288,8 @@ function select(id, { fly = true } = {}) {
   if (!type) return;
   state.selected = id;
   map.setFilter('core', ['in', ['get', 'iso'], ['literal', expandIso(type.core)]]);
-  map.setFilter('fringe', ['in', ['get', 'iso'], ['literal', expandIso(type.fringe)]]);
+  const listed = expandIso([...type.core, ...type.fringe]);
+  map.setFilter('fringe', ['in', ['get', 'iso'], ['literal', [...expandIso(type.fringe), ...inferredGaps(listed)]]]);
   map.setFilter('selected', ['==', ['get', 'id'], id]);
   renderType(type);
   closeStory();
@@ -422,6 +437,7 @@ async function start() {
       loadCSV(CONFIG.data.types),
       loadCSV(CONFIG.data.cases).catch((err) => { console.warn('Cases not loaded:', err); return { rows: [], headers: [] }; }),
       fetch(CONFIG.data.countries).then((r) => r.json()),
+      fetch(CONFIG.data.borders).then((r) => r.json()).then((b) => { state.borders = b; }).catch(() => {}),
     ]);
   } catch (err) {
     console.error(err);

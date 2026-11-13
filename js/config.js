@@ -12,6 +12,7 @@ export default {
     types: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSisp-A30FUq5SYzZc99_S1lDcQU7IEPai58C95VTVTsYEZvuOvC-r0hoLQwF9Y3aenVgKruYcGKvf3/pub?gid=1467989397&single=true&output=csv',
     cases: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSisp-A30FUq5SYzZc99_S1lDcQU7IEPai58C95VTVTsYEZvuOvC-r0hoLQwF9Y3aenVgKruYcGKvf3/pub?gid=207720304&single=true&output=csv',
     countries: 'data/countries.geojson',
+    borders: 'data/borders.json',      // land-border lengths between neighbours, used for inferred gaps
   },
 
   // Column headers in the sheet. If you rename a column, change it here.
@@ -50,6 +51,13 @@ export default {
     showEmptySlot: true,     // show a blank frame when a type has no image yet
   },
 
+  // Upload page (upload.html): where images are committed, and how they are shrunk first.
+  github: { owner: 'i-blazevicius', repo: 'atlas-of-warmth', branch: 'main' },
+  imageUpload: {
+    maxSize: 1600,           // longest side in pixels (1080 is fine for the panel; 1600 leaves room to zoom later)
+    quality: 0.82,           // JPG quality, 0–1
+  },
+
   // How the map starts and behaves.
   view: {
     projection: 'globe',     // 'globe' or 'mercator' (flat)
@@ -69,15 +77,22 @@ export default {
     border: '#6b6157',
     borderWidth: 0.6,
     graticule: '#2a2622',
-    point: '#7a8bd6',
+    point: '#8d9dc9',
     pointStroke: '#0d0c0b',
     pointRadius: 6.5,       // dot size; clicks also register a few pixels around it
     selectedRing: '#f4e9dc',
-    core: '#7a8bd6',
+    core: '#8d9dc9',
     coreOpacity: 0.55,
-    fringe: '#7a8bd6',       // fringe countries get diagonal hatching in this colour
+    fringe: '#8d9dc9',       // fringe countries get diagonal hatching in this colour
     fringeOpacity: 0.7,
     atmosphere: false,       // true = soft blue glow round the globe's edge
+  },
+
+  // Unlisted countries whose land border mostly touches a type's listed countries
+  // (e.g. Latvia between Estonia and Lithuania) are shaded like "less prevalent / likely".
+  inferGaps: {
+    on: true,
+    share: 0.6,              // 0.6 = at least 60% of the country's land border touches listed countries
   },
 
   // Some sheet codes differ from the border data's codes. Left: code in the sheet, right: codes to shade.
