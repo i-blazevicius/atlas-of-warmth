@@ -13,6 +13,8 @@ const state = {
   countryBoxes: new Map(), // iso -> { a: [w,s,e,n], b: [w,s,e,n] } (b = longitudes 0..360)
   selected: null,
   onlyStories: false,
+  onlyImages: false,
+  images: null,         // Set of type IDs that have an image (from the repository's images folder)
 };
 
 // ── Helpers ────────────────────────────────────────────────
@@ -188,8 +190,13 @@ function boundsFor(type, regions = []) {
   return [[best[0], best[1]], [best[2], best[3]]];
 }
 
+function visibleTypes() {
+  return state.types.filter((t) =>
+    (!state.onlyStories || t.cases.length) && (!state.onlyImages || state.images?.has(t.id)));
+}
+
 function featureCollection() {
-  const list = state.onlyStories ? state.types.filter((t) => t.cases.length) : state.types;
+  const list = visibleTypes();
   return {
     type: 'FeatureCollection',
     features: list.map((t) => ({
@@ -261,16 +268,15 @@ function flatConstrain(lngLat, zoom) {
 
 function applyProjection() {
   map.setProjection({ type: V.projection });
-  // Flat map: no tilting or turning (right-drag, two-finger twist).
-  if (V.projection === 'mercator') {
-    map.dragRotate.disable(); map.touchZoomRotate.disableRotation(); map.keyboard.disableRotation();
-    map.easeTo({ bearing: 0, pitch: 0, duration: 0 });
-  } else {
-    map.dragRotate.enable(); map.touchZoomRotate.enableRotation(); map.keyboard.enableRotation();
-  }
+  // No tilting or turning on either view (right-drag, two-finger twist or tilt).
   map.setTransformConstrain(V.projection === 'mercator' ? flatConstrain : null);
   map.jumpTo({ center: map.getCenter(), zoom: map.getZoom() }); // re-apply limits now
 }
+
+map.dragRotate.disable();
+map.touchZoomRotate.disableRotation();
+map.touchPitch.disable();
+map.keyboard.disableRotation();
 
 const mapLoaded = new Promise((resolve) => map.once('load', resolve));
 document.body.style.background = T.space;
@@ -599,11 +605,12 @@ function syncControls() {
   document.querySelectorAll('[data-onclick]').forEach((b) => b.classList.toggle('active', b.dataset.onclick === V.onClick));
 }
 function updateCount() {
-  const shown = featureCollection().features.length;
+  const shown = visibleTypes().length;
   const withStories = state.types.filter((t) => t.cases.length).length;
-  $('count').textContent = state.onlyStories
+  const withImages = state.images ? state.types.filter((t) => state.images.has(t.id)).length : null;
+  $('count').textContent = state.onlyStories || state.onlyImages
     ? `${shown} of ${state.types.length} types`
-    : `${state.types.length} types · ${withStories} with stories`;
+    : `${state.types.length} types · ${withStories} with stories${withImages !== null ? ` · ${withImages} with images` : ''}`;
 }
 
 document.addEventListener('click', (e) => {
@@ -617,12 +624,32 @@ document.addEventListener('click', (e) => {
   if (t.dataset.close === 'panel') clearSelection();
   if (t.dataset.close === 'story') closeStory();
 });
-$('filter-stories').addEventListener('change', (e) => {
-  state.onlyStories = e.target.checked;
+function refilter() {
   resetClusters();
   map.getSource('types').setData(featureCollection());
   updateCount();
-});
+}
+$('filter-stories').addEventListener('change', (e) => { state.onlyStories = e.target.checked; refilter(); });
+$('filter-images').addEventListener('change', (e) => { state.onlyImages = e.target.checked; refilter(); });
+
+// Which types have an image: list the repository's images folder (GitHub API, no login needed).
+async function loadImageList() {
+  const { owner, repo, branch } = CONFIG.github;
+  const folder = CONFIG.images.folder.replace(/\/$/, '');
+  try {
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${folder}?ref=${branch}`);
+    if (!res.ok) throw new Error(res.status);
+    const exts = new Set(CONFIG.images.extensions);
+    state.images = new Set((await res.json())
+      .map((f) => f.name.match(/^(.+)\.([a-z0-9]+)$/i))
+      .filter((m) => m && exts.has(m[2].toLowerCase()))
+      .map((m) => m[1]));
+  } catch {
+    $('filter-images').disabled = true;
+    $('filter-images').closest('label').title = 'Could not read the image list';
+  }
+  updateCount();
+}
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (!$('story').hidden) closeStory(); else clearSelection();
@@ -654,6 +681,7 @@ async function start() {
   computeCountryBoxes(countries);
   showMessage('');
   updateCount();
+  loadImageList();
 
   await mapLoaded;
   applyProjection();

@@ -53,8 +53,9 @@ button { font: inherit; color: inherit; }
 }
 .segmented button + button { border-left: 1px solid var(--panel-line); }
 .segmented button.active { background: var(--ink); color: var(--space); }
-.check { display: flex; gap: 7px; align-items: center; margin: 12px 0 12px; color: var(--ink-dim); cursor: pointer; }
+.check { display: flex; gap: 7px; align-items: center; margin: 8px 0 12px; color: var(--ink-dim); cursor: pointer; }
 .check input { accent-color: var(--accent); margin: 0; }
+.check + .check { margin-top: -4px; }
 .legend { display: flex; flex-direction: column; gap: 6px; color: var(--ink-dim); padding-top: 10px; border-top: 1px solid var(--panel-line); }
 .legend span { display: flex; align-items: center; gap: 6px; }
 .swatch { display: inline-block; width: 12px; height: 12px; }
