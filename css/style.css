@@ -135,3 +135,5 @@ button { font: inherit; color: inherit; }
   .controls { width: auto; right: 16px; }
   .panel, .panel.story { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; max-height: 62vh; }
 }
+
+.type-list + .list-title { margin-top: 22px; }

@@ -12,7 +12,8 @@ export default {
     types: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSisp-A30FUq5SYzZc99_S1lDcQU7IEPai58C95VTVTsYEZvuOvC-r0hoLQwF9Y3aenVgKruYcGKvf3/pub?gid=1467989397&single=true&output=csv',
     cases: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSisp-A30FUq5SYzZc99_S1lDcQU7IEPai58C95VTVTsYEZvuOvC-r0hoLQwF9Y3aenVgKruYcGKvf3/pub?gid=207720304&single=true&output=csv',
     countries: 'data/countries.geojson',
-    borders: 'data/borders.json',      // land-border lengths between neighbours, used for inferred gaps
+    borders: 'data/borders.json',
+    regions: 'data/regions/',          // region shapes per country (US-CA, IT-88 …), see tools/build_regions.py      // land-border lengths between neighbours, used for inferred gaps
   },
 
   // Column headers in the sheet. If you rename a column, change it here.

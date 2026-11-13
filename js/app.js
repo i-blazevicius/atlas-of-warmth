@@ -70,6 +70,7 @@ function parseTypes({ rows, headers }) {
       period: get(row, 'period'),
       core: splitList(get(row, 'core')).map((x) => x.toUpperCase()),
       fringe: splitList(get(row, 'fringe')).map((x) => x.toUpperCase()),
+      // core/fringe hold both country codes (RUS) and region codes (US-CA); regions contain a hyphen.
       cases: [...new Set(get(row, 'cases').match(new RegExp(CONFIG.caseIdPattern, 'g')) ?? [])],
     });
   }
@@ -132,15 +133,54 @@ function inferredGaps(listed) {
   return out;
 }
 
-const expandIso = (codes) => codes.flatMap((code) => CONFIG.isoAliases[code] ?? [code]);
+const isRegion = (code) => code.includes('-');
+const countriesOf = (codes) => codes.filter((c) => !isRegion(c));
+const regionsOf = (codes) => codes.filter(isRegion);
+const expandIso = (codes) => countriesOf(codes).flatMap((code) => CONFIG.isoAliases[code] ?? [code]);
+// Country (ISO3) that a region code belongs to, e.g. US-CA -> USA.
+const regionCountry = (code) => state.regionIndex?.prefixes[code.split('-')[0]] ?? null;
+
+// Region shapes are stored per country and loaded the first time they are needed.
+const regionFiles = new Map();
+function loadRegionFile(iso3) {
+  if (!regionFiles.has(iso3)) {
+    regionFiles.set(iso3, fetch(`${CONFIG.data.regions}${iso3}.geojson`)
+      .then((r) => (r.ok ? r.json() : { features: [] }))
+      .catch(() => ({ features: [] })));
+  }
+  return regionFiles.get(iso3);
+}
+async function regionFeatures(codes, role) {
+  const wanted = new Set(codes);
+  const files = await Promise.all([...new Set(codes.map(regionCountry).filter(Boolean))].map(loadRegionFile));
+  const found = files.flatMap((fc) => fc.features.filter((f) => wanted.has(f.properties.code)));
+  const missing = codes.filter((c) => !found.some((f) => f.properties.code === c));
+  if (missing.length) console.warn('Region codes not found:', missing.join(', '));
+  return found.map((f) => ({ ...f, properties: { ...f.properties, role } }));
+}
+function featureBox(f) {
+  const a = [Infinity, Infinity, -Infinity, -Infinity], b = [Infinity, Infinity, -Infinity, -Infinity];
+  const walk = (c) => {
+    if (typeof c[0] === 'number') {
+      const xb = c[0] < 0 ? c[0] + 360 : c[0];
+      a[0] = Math.min(a[0], c[0]); a[2] = Math.max(a[2], c[0]);
+      b[0] = Math.min(b[0], xb); b[2] = Math.max(b[2], xb);
+      a[1] = b[1] = Math.min(a[1], c[1]); a[3] = b[3] = Math.max(a[3], c[1]);
+      return;
+    }
+    c.forEach(walk);
+  };
+  walk(f.geometry.coordinates);
+  return { a, b };
+}
 
 // Bounds of a type's countries plus its point, picking whichever side of the antimeridian is tighter.
-function boundsFor(type) {
+function boundsFor(type, regions = []) {
   let a = [type.lon, type.lat, type.lon, type.lat];
   const lonB = type.lon < 0 ? type.lon + 360 : type.lon;
   let b = [lonB, type.lat, lonB, type.lat];
-  for (const iso of expandIso([...type.core, ...type.fringe])) {
-    const box = state.countryBoxes.get(iso);
+  const boxes = [...expandIso([...type.core, ...type.fringe]).map((iso) => state.countryBoxes.get(iso)), ...regions.map(featureBox)];
+  for (const box of boxes) {
     if (!box) continue;
     a = union(a, box.a); b = union(b, box.b);
   }
@@ -241,7 +281,11 @@ function addLayers(countries) {
   map.addLayer({ id: 'land', type: 'fill', source: 'countries', paint: { 'fill-color': T.land } });
   map.addLayer({ id: 'fringe', type: 'fill', source: 'countries', filter: none, paint: { 'fill-pattern': 'hatch' } });
   map.addLayer({ id: 'core', type: 'fill', source: 'countries', filter: none, paint: { 'fill-color': T.core, 'fill-opacity': T.coreOpacity } });
+  map.addSource('regions', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+  map.addLayer({ id: 'region-fringe', type: 'fill', source: 'regions', filter: ['==', ['get', 'role'], 'fringe'], paint: { 'fill-pattern': 'hatch' } });
+  map.addLayer({ id: 'region-core', type: 'fill', source: 'regions', filter: ['==', ['get', 'role'], 'core'], paint: { 'fill-color': T.core, 'fill-opacity': T.coreOpacity } });
   map.addLayer({ id: 'borders', type: 'line', source: 'countries', paint: { 'line-color': T.border, 'line-width': T.borderWidth } });
+  map.addLayer({ id: 'country-selected', type: 'line', source: 'countries', filter: none, paint: { 'line-color': T.selectedRing, 'line-width': 1.4 } });
   map.addLayer({
     id: 'points', type: 'circle', source: 'types', filter: ['!', ['has', 'point_count']],
     paint: {
@@ -311,19 +355,37 @@ async function openCluster(clusterId, coords) {
 }
 
 // ── Selection and panels ───────────────────────────────────
-function select(id, { fly = true } = {}) {
+// Countries shaded as "less prevalent / likely" because they sit inside the type's area.
+// Countries listed only by region count as neighbours, but are never filled in whole.
+function gapsFor(type) {
+  if (type._gaps) return type._gaps;
+  const all = [...type.core, ...type.fringe];
+  const partial = [...new Set(regionsOf(all).map(regionCountry).filter(Boolean))];
+  type._gaps = inferredGaps([...expandIso(all), ...partial]).filter((iso) => !partial.includes(iso));
+  return type._gaps;
+}
+
+async function select(id, { fly = true } = {}) {
   const type = state.byId.get(id);
   if (!type) return;
   state.selected = id;
+  state.country = null;
+  map.setFilter('country-selected', ['in', ['get', 'iso'], ['literal', []]]);
   map.setFilter('core', ['in', ['get', 'iso'], ['literal', expandIso(type.core)]]);
-  const listed = expandIso([...type.core, ...type.fringe]);
-  map.setFilter('fringe', ['in', ['get', 'iso'], ['literal', [...expandIso(type.fringe), ...inferredGaps(listed)]]]);
+  map.setFilter('fringe', ['in', ['get', 'iso'], ['literal', [...expandIso(type.fringe), ...gapsFor(type)]]]);
   map.setFilter('selected', ['==', ['get', 'id'], id]);
+  map.getSource('regions').setData({ type: 'FeatureCollection', features: [] });
   renderType(type);
   closeStory();
   history.replaceState(null, '', `#${id}`);
 
-  if (fly && V.onClick === 'fit') fitIfNeeded(boundsFor(type));
+  const regions = [
+    ...(await regionFeatures(regionsOf(type.core), 'core')),
+    ...(await regionFeatures(regionsOf(type.fringe), 'fringe')),
+  ];
+  if (state.selected !== id) return; // another type was clicked meanwhile
+  map.getSource('regions').setData({ type: 'FeatureCollection', features: regions });
+  if (fly && V.onClick === 'fit') fitIfNeeded(boundsFor(type, regions));
 }
 
 // Zoom out to show the whole extent if it doesn't fit; never zoom in.
@@ -358,9 +420,12 @@ function fitIfNeeded(bounds) {
 
 function clearSelection() {
   state.selected = null;
+  state.country = null;
   const none = ['in', ['get', 'iso'], ['literal', []]];
   map.setFilter('core', none);
   map.setFilter('fringe', none);
+  map.setFilter('country-selected', none);
+  map.getSource('regions').setData({ type: 'FeatureCollection', features: [] });
   map.setFilter('selected', ['==', ['get', 'id'], '']);
   $('panel').hidden = true;
   closeStory();
@@ -414,12 +479,33 @@ function loadImage(id, figure) {
   tryNext();
 }
 
+const typeItems = (types) => `<ul class="type-list">${types.map((t) => `<li><button type="button" data-type="${esc(t.id)}">${esc(t.translit || t.name)}<small>${esc(t.id)} · ${esc(t.family)}</small></button></li>`).join('')}</ul>`;
+
 function showList(types) {
   state.selected = null;
-  $('panel-body').innerHTML = `
-    <p class="list-title">${types.length} types in this spot</p>
-    <ul class="type-list">${types.map((t) => `<li><button type="button" data-type="${esc(t.id)}">${esc(t.translit || t.name)}<small>${esc(t.id)} · ${esc(t.family)}</small></button></li>`).join('')}</ul>`;
+  $('panel-body').innerHTML = `<p class="list-title">${types.length} types in this spot</p>${typeItems(types)}`;
   $('panel').hidden = false;
+}
+
+// Click on a country (or a region inside it): list every type found there.
+function showCountry(iso, name) {
+  clearSelection();
+  state.country = iso;
+  map.setFilter('country-selected', ['==', ['get', 'iso'], iso]);
+  const inCodes = (codes) => expandIso(codes).includes(iso) || regionsOf(codes).some((c) => regionCountry(c) === iso);
+  const wide = [], less = [];
+  for (const t of state.types) {
+    if (inCodes(t.core)) wide.push(t);
+    else if (inCodes(t.fringe) || gapsFor(t).includes(iso)) less.push(t);
+  }
+  const section = (title, list) => (list.length ? `<p class="list-title">${title}</p>${typeItems(list)}` : '');
+  $('panel-body').innerHTML = `
+    <h1 class="story-title">${esc(name)}</h1>
+    ${section('Widely used', wide)}
+    ${section('Less prevalent / likely', less)}
+    ${!wide.length && !less.length ? '<p class="meta">No types recorded here yet.</p>' : ''}`;
+  $('panel').hidden = false;
+  $('panel-body').scrollTop = 0;
 }
 
 function openStory(cid) {
@@ -487,6 +573,7 @@ async function start() {
       loadCSV(CONFIG.data.cases).catch((err) => { console.warn('Cases not loaded:', err); return { rows: [], headers: [] }; }),
       fetch(CONFIG.data.countries).then((r) => r.json()),
       fetch(CONFIG.data.borders).then((r) => r.json()).then((b) => { state.borders = b; }).catch(() => {}),
+      fetch(`${CONFIG.data.regions}index.json`).then((r) => r.json()).then((x) => { state.regionIndex = x; }).catch(() => {}),
     ]);
   } catch (err) {
     console.error(err);
@@ -509,7 +596,10 @@ async function start() {
     map.on('mouseenter', 'points-hit', () => { map.getCanvas().style.cursor = 'pointer'; });
     map.on('mouseleave', 'points-hit', () => { map.getCanvas().style.cursor = ''; });
     map.on('click', (e) => {
-      if (!map.queryRenderedFeatures(e.point, { layers: ['points-hit'] }).length && state.selected) clearSelection();
+      if (map.queryRenderedFeatures(e.point, { layers: ['points-hit'] }).length) return;
+      const land = map.queryRenderedFeatures(e.point, { layers: ['land'] })[0];
+      if (land) showCountry(land.properties.iso, land.properties.name);
+      else clearSelection();
     });
     const fromHash = decodeURIComponent(location.hash.slice(1));
     if (fromHash && state.byId.has(fromHash)) select(fromHash);
