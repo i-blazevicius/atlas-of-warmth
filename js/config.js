@@ -11,7 +11,7 @@ export default {
   data: {
     types: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSisp-A30FUq5SYzZc99_S1lDcQU7IEPai58C95VTVTsYEZvuOvC-r0hoLQwF9Y3aenVgKruYcGKvf3/pub?gid=1467989397&single=true&output=csv',
     cases: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSisp-A30FUq5SYzZc99_S1lDcQU7IEPai58C95VTVTsYEZvuOvC-r0hoLQwF9Y3aenVgKruYcGKvf3/pub?gid=207720304&single=true&output=csv',
-    names: '',                         // published CSV of the Names tab (local names per type and place)
+    names: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSisp-A30FUq5SYzZc99_S1lDcQU7IEPai58C95VTVTsYEZvuOvC-r0hoLQwF9Y3aenVgKruYcGKvf3/pub?gid=777001&single=true&output=csv',                         // published CSV of the Names tab (local names per type and place)
     countries: 'data/countries.geojson',
     labels: 'data/labels.json',        // a point inside every country and region, for placing name dots
     ocean: 'data/ocean.geojson',       // only drawn over the climate underlay, to keep coastlines crisp
