@@ -138,6 +138,8 @@ function handleFile(id, file) {
         setStatus('saving…');
         await commitImage(id, blob);
         setStatus(`saved · ${w}×${h} · ${kb} KB`, 'ok');
+        const actions = row?.querySelector('.up-actions');
+        if (actions && !actions.querySelector('.up-remove')) actions.innerHTML = '<button type="button" class="up-remove">remove</button>';
       } else {
         download(blob, `${id}.jpg`);
         setStatus(`downloaded · ${kb} KB`, 'ok');
@@ -177,6 +179,7 @@ function render() {
       <div class="up-thumb">${file ? `<img src="${folder}/${esc(file.name)}?v=${esc(file.sha.slice(0, 7))}" alt="" loading="lazy">` : 'drop image'}</div>
       <div><div class="up-name">${esc(t.translit || t.name)}</div><div class="up-sub">${esc(t.id)} · ${esc(t.family)}</div></div>
       <div class="up-status">${file ? esc(file.name) : ''}</div>
+      <div class="up-actions">${file ? '<button type="button" class="up-remove">remove</button>' : ''}</div>
       <input type="file" accept="image/*">
     </li>`;
   }).join('');
@@ -188,8 +191,44 @@ function updateSummary() {
 }
 
 // ── Events ─────────────────────────────────────────────────
+async function removeImage(id, button) {
+  if (!state.token) { message('Connect a GitHub token first to remove images.'); return; }
+  if (button.dataset.armed !== '1') {
+    // First click arms the button; a second click within 4 s deletes.
+    button.dataset.armed = '1';
+    button.textContent = 'click again to delete';
+    button.classList.add('armed');
+    setTimeout(() => { if (button.isConnected) { button.dataset.armed = ''; button.textContent = 'remove'; button.classList.remove('armed'); } }, 4000);
+    return;
+  }
+  const row = button.closest('.up-item');
+  const status = row.querySelector('.up-status');
+  button.disabled = true;
+  state.queue = state.queue.then(async () => {
+    try {
+      status.textContent = 'removing…'; status.className = 'up-status';
+      for (const f of state.existing.get(id) ?? []) {
+        await gh(`/contents/${folder}/${f.name}`, {
+          method: 'DELETE',
+          body: JSON.stringify({ message: `Remove image ${f.name}`, sha: f.sha, branch: GH.branch }),
+        });
+      }
+      state.existing.delete(id);
+      row.querySelector('.up-thumb').textContent = 'drop image';
+      status.textContent = 'removed'; status.className = 'up-status ok';
+      button.remove();
+      updateSummary();
+    } catch (err) {
+      status.textContent = `failed: ${err.message}`; status.className = 'up-status err';
+      button.disabled = false;
+    }
+  });
+}
+
 const list = $('list');
 list.addEventListener('click', (e) => {
+  const remove = e.target.closest('.up-remove');
+  if (remove) { removeImage(remove.closest('.up-item').dataset.id, remove); return; }
   const item = e.target.closest('.up-item');
   if (item && e.target.tagName !== 'INPUT') item.querySelector('input[type="file"]').click();
 });

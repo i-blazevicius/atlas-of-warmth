@@ -31,7 +31,7 @@ code { font-family: var(--font-mono); font-size: 0.85em; color: var(--accent); }
 
 .up-list { list-style: none; margin: 0; padding: 0; }
 .up-item {
-  display: grid; grid-template-columns: 96px 1fr auto; gap: 16px; align-items: center;
+  display: grid; grid-template-columns: 96px 1fr auto auto; gap: 16px; align-items: center;
   padding: 10px; border: 1px solid transparent; border-top-color: var(--panel-line); cursor: pointer;
 }
 .up-item:hover { background: rgba(255, 255, 255, 0.02); }
@@ -46,3 +46,10 @@ code { font-family: var(--font-mono); font-size: 0.85em; color: var(--accent); }
 .up-status.ok { color: var(--accent); }
 .up-status.err { color: #d67a6a; }
 .up-item input[type="file"] { display: none; }
+
+.up-remove {
+  background: none; border: 1px solid var(--panel-line); color: var(--ink-faint); cursor: pointer;
+  font-family: var(--font-mono); font-size: 10.5px; padding: 4px 8px; border-radius: var(--radius); white-space: nowrap;
+}
+.up-remove:hover { color: var(--ink); border-color: var(--ink-faint); }
+.up-remove.armed { color: #d67a6a; border-color: #d67a6a; }

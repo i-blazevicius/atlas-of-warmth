@@ -118,9 +118,16 @@ function inferredGaps(listed) {
   const out = [];
   for (const [iso, neighbours] of Object.entries(state.borders)) {
     if (set.has(iso)) continue;
-    let total = 0, shared = 0;
-    for (const [n, len] of Object.entries(neighbours)) { total += len; if (set.has(n)) shared += len; }
-    if (total && shared / total >= CONFIG.inferGaps.share) out.push(iso);
+    let total = 0, shared = 0, dirs = 0;
+    for (const [n, [len, bits]] of Object.entries(neighbours)) {
+      total += len;
+      if (set.has(n)) { shared += len; dirs |= bits; }
+    }
+    if (!total || shared / total < CONFIG.inferGaps.share) continue;
+    // dirs: 36 bits, one per 10° of direction from the country's centre where a listed border lies.
+    let run = 0, widest = 0;
+    for (let i = 0; i < 72; i++) { if (dirs & (1 << (i % 36))) run = 0; else widest = Math.max(widest, ++run); }
+    if (Math.min(widest, 36) * 10 <= CONFIG.inferGaps.maxGap) out.push(iso);
   }
   return out;
 }
@@ -197,6 +204,27 @@ const map = new maplibregl.Map({
   maxZoom: V.maxZoom,
   attributionControl: false,
 });
+// Flat map limits: no zooming out past one world width, and no scrolling past the latitudes in
+// view.flatLatitudes (hides Antarctica). Sideways scrolling stays free.
+const mercY = (lat) => (1 - Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI) / 360)) / Math.PI) / 2;
+const mercLat = (f) => (360 / Math.PI) * Math.atan(Math.exp(Math.PI * (1 - 2 * f))) - 90;
+function flatConstrain(lngLat, zoom) {
+  const [south, north] = V.flatLatitudes;
+  const top = mercY(north), bottom = mercY(south);
+  const { clientWidth: w, clientHeight: h } = map.getCanvas();
+  const minZoom = Math.max(Math.log2(w / 512), Math.log2(h / (512 * (bottom - top))));
+  const z = Math.min(Math.max(zoom, minZoom), V.maxZoom);
+  const size = 512 * 2 ** z;
+  const y = Math.min(Math.max(mercY(lngLat.lat) * size, top * size + h / 2), bottom * size - h / 2);
+  return { center: new maplibregl.LngLat(lngLat.lng, mercLat(y / size)), zoom: z };
+}
+
+function applyProjection() {
+  map.setProjection({ type: V.projection });
+  map.setTransformConstrain(V.projection === 'mercator' ? flatConstrain : null);
+  map.jumpTo({ center: map.getCenter(), zoom: map.getZoom() }); // re-apply limits now
+}
+
 const mapLoaded = new Promise((resolve) => map.once('load', resolve));
 document.body.style.background = T.space;
 
@@ -295,16 +323,37 @@ function select(id, { fly = true } = {}) {
   closeStory();
   history.replaceState(null, '', `#${id}`);
 
-  if (fly && V.onClick === 'fit') {
-    const panel = $('panel').getBoundingClientRect();
-    const narrow = window.innerWidth < 760;
-    map.fitBounds(boundsFor(type), {
-      padding: narrow
-        ? { top: 40, bottom: window.innerHeight * 0.62 + 20, left: 40, right: 40 }
-        : { top: 60, bottom: 60, left: 280, right: panel.width + 60 },
-      maxZoom: 6, duration: 1200,
-    });
+  if (fly && V.onClick === 'fit') fitIfNeeded(boundsFor(type));
+}
+
+// Zoom out to show the whole extent if it doesn't fit; never zoom in.
+// If it fits at the current zoom but is partly off-screen, pan to it.
+function fitIfNeeded(bounds) {
+  const panel = $('panel').getBoundingClientRect();
+  const narrow = window.innerWidth < 760;
+  const padding = narrow
+    ? { top: 40, bottom: window.innerHeight * 0.62 + 20, left: 40, right: 40 }
+    : { top: 60, bottom: 60, left: 280, right: panel.width + 60 };
+  // On the flat map, use the copy of the world nearest to the current view.
+  if (V.projection === 'mercator') {
+    const mid = (bounds[0][0] + bounds[1][0]) / 2;
+    const shift = Math.round((map.getCenter().lng - mid) / 360) * 360;
+    bounds = [[bounds[0][0] + shift, bounds[0][1]], [bounds[1][0] + shift, bounds[1][1]]];
   }
+  const cam = map.cameraForBounds(bounds, { padding });
+  if (!cam) return;
+  if (cam.zoom < map.getZoom()) {
+    map.easeTo({ ...cam, duration: 1200 });
+    return;
+  }
+  // Does the extent already sit inside the padded screen area?
+  const w = map.getCanvas().clientWidth, h = map.getCanvas().clientHeight;
+  const corners = [[bounds[0][0], bounds[0][1]], [bounds[1][0], bounds[1][1]], [bounds[0][0], bounds[1][1]], [bounds[1][0], bounds[0][1]]];
+  const inside = corners.every((c) => {
+    const p = map.project(c);
+    return p.x >= padding.left && p.x <= w - padding.right && p.y >= padding.top && p.y <= h - padding.bottom;
+  });
+  if (!inside) map.easeTo({ center: cam.center, duration: 1000 });
 }
 
 function clearSelection() {
@@ -409,7 +458,7 @@ function updateCount() {
 document.addEventListener('click', (e) => {
   const t = e.target.closest('button');
   if (!t) return;
-  if (t.dataset.projection) { V.projection = t.dataset.projection; map.setProjection({ type: V.projection }); syncControls(); }
+  if (t.dataset.projection) { V.projection = t.dataset.projection; applyProjection(); syncControls(); }
   if (t.dataset.onclick) { V.onClick = t.dataset.onclick; syncControls(); }
   if (t.dataset.case) openStory(t.dataset.case);
   if (t.dataset.type) select(t.dataset.type);
@@ -452,6 +501,7 @@ async function start() {
   updateCount();
 
   await mapLoaded;
+  applyProjection();
   {
     addLayers(countries);
     map.on('render', () => { if (map.getSource('types') && map.isSourceLoaded('types')) updateClusters(); });

@@ -64,6 +64,7 @@ export default {
     center: [40, 40],        // [longitude, latitude]
     zoom: 1.6,
     maxZoom: 9,
+    flatLatitudes: [-60, 84],  // flat map: southern and northern limit (−60 hides Antarctica); also stops zooming out past one world width
     onClick: 'fit',          // 'fit' = zoom to the type's countries, 'stay' = keep the current view
     clusterRadius: 38,       // how close points must be (in pixels) to merge into a cluster
     clusterMaxZoom: 8,       // above this zoom, points never cluster
@@ -92,7 +93,9 @@ export default {
   // (e.g. Latvia between Estonia and Lithuania) are shaded like "less prevalent / likely".
   inferGaps: {
     on: true,
-    share: 0.6,              // 0.6 = at least 60% of the country's land border touches listed countries
+    share: 0.65,             // at least 65% of the country's land border touches listed countries…
+    maxGap: 150,             // …and listed borders surround it: no stretch wider than 150° (seen from its centre)
+                             // without one. Stops edge countries like Greece being added for Balkan types.
   },
 
   // Some sheet codes differ from the border data's codes. Left: code in the sheet, right: codes to shade.
