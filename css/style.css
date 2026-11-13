@@ -87,15 +87,14 @@ button { font: inherit; color: inherit; }
 .cluster:hover { box-shadow: 0 0 0 2px var(--accent); }
 
 /* ── The open type's dots ─────────────────────────────────
-   Its other places: own fill, accent ring. The one whose name is shown: filled in the accent. */
+   All its dots are filled in the accent colour; the one whose name is shown also gets a ring. */
 .dot-selected {
-  width: 16px; height: 16px; padding: 0; border-radius: 50%; cursor: pointer;
-  background: var(--node); border: 3px solid var(--accent); box-shadow: 0 0 0 1.5px var(--space);
+  width: 13px; height: 13px; padding: 0; border-radius: 50%; cursor: pointer;
+  background: var(--accent); border: 1.5px solid var(--space);
   z-index: 3;   /* above the cluster bubbles */
 }
 .dot-selected.active {
-  width: 20px; height: 20px; background: var(--accent); border: 3px solid var(--node);
-  box-shadow: 0 0 0 1.5px var(--space), 0 0 0 5px rgba(141, 157, 201, 0.35);
+  outline: 1.5px solid var(--accent); outline-offset: 3.5px;
   z-index: 4;
 }
 
