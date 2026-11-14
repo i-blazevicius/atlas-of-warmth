@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Atlas of Warmth · print</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,300..700;1,300..700&family=Noto+Sans+Display:wght@400..700&family=Noto+Sans+Armenian&family=Noto+Sans+Georgian&family=Noto+Sans+Gurmukhi&family=Noto+Sans+Devanagari&family=Noto+Sans+Arabic&family=Noto+Sans+Canadian+Aboriginal&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css" id="main-css">
+  <link rel="stylesheet" href="css/print.css" id="print-css">
+  <script>
+    document.getElementById("main-css").href = "css/style.css?v=" + Date.now();
+    document.getElementById("print-css").href = "css/print.css?v=" + Date.now();
+  </script>
+  <script src="lib/papaparse.min.js"></script>
+</head>
+<body class="print-page">
+  <!-- Settings bar: on screen only, never printed. Starting values are in js/config.js → print. -->
+  <header class="print-bar" id="print-bar">
+    <strong>Print cards</strong>
+    <label>Style <select id="p-style"></select></label>
+    <label>Order <select id="p-order">
+      <option value="family">By family</option>
+      <option value="west-east">West to east</option>
+      <option value="id">By ID</option>
+      <option value="random">Random</option>
+    </select></label>
+    <label>Paper <select id="p-paper">
+      <option value="auto">Smallest that fits</option>
+      <option>A4</option><option>A3</option><option>A2</option><option>A1</option><option>A0</option>
+    </select></label>
+    <label>Card width <input type="number" id="p-width" min="40" max="200" step="1"> mm</label>
+    <label class="check"><input type="checkbox" id="p-images"> Only types with images</label>
+    <label class="check"><input type="checkbox" id="p-empty"> Frame for missing images</label>
+    <span class="print-info" id="p-info">loading…</span>
+    <button type="button" id="p-print">Print / save as PDF</button>
+  </header>
+  <main id="sheets" class="sheets"></main>
+
+  <script type="module">import(`./js/print.js?v=${Date.now()}`);</script>
+</body>
+</html>

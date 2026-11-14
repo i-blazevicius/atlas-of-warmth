@@ -98,6 +98,22 @@ export default {
   // true = shown, false = hidden (visitors then see the default version from data/styles.json).
   stylePanel: true,
 
+  // Print page (print.html): every type card, packed into balanced columns on the smallest paper that fits.
+  // All of these can also be changed in the bar at the top of that page.
+  print: {
+    style: 'Print, white',   // style version used for printing (falls back to the default)
+    cardWidth: 85,           // card width on paper, mm (text keeps its proportion to the card)
+    gap: 5,                  // space between cards, mm
+    margin: 12,              // paper margin, mm
+    header: 12,              // height of the title line at the top of each sheet, mm
+    paper: 'auto',           // 'auto' (smallest of A4–A0 that fits) or 'A4' … 'A0'
+    order: 'family',         // 'family', 'west-east', 'id' or 'random'
+    onlyImages: false,       // only types that have a picture
+    emptyImages: false,      // show a grey frame where a picture is missing
+    locator: true,           // small map of the type's area on each card
+    title: 'Atlas of Warmth',
+  },
+
   // Experiments (both off). Can also be tried for one visit from the address bar:
   //   …/atlas-of-warmth/?cards=float      …/atlas-of-warmth/?flat=equalearth
   cards: 'panel',            // 'panel' = one card docked on the right; 'float' = up to maxCards cards beside their dots

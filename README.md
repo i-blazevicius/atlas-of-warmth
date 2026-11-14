@@ -84,6 +84,12 @@ Switch them in the control panel. Both are built by `tools/build_climate.py` fro
 | Panel layout, clusters, legend | `css/style.css` (variables at the top are the fallbacks) |
 | Control panel contents | `index.html` |
 
+## Printing the cards
+
+`print.html` (…/atlas-of-warmth/print.html) lays every type card out for printing: picture, names, a small locator map of the type's area, form, period, stories and ID. The cards are packed into columns of nearly equal length on the smallest paper (A4 to A0) that holds them all, or on several A0 sheets if needed. Use the bar at the top to pick the style version, order, paper, card width and filters, then **Print / save as PDF**: text, borders and maps come out as vectors. The starting settings are in `js/config.js` → `print`.
+
+The map and the print page share the code that reads the sheet and draws a card (`js/core.js`), so the printed cards always match the map.
+
 ## Experiments (off by default)
 
 Two trial features, switched in `js/config.js` or just for one visit through the address bar:

@@ -1,0 +1,64 @@
+/* Print page (print.html). Cards reuse the panel styles from style.css; sizes here are on paper. */
+.print-page { background: #e9e9e9; color: var(--ink); overflow: auto; height: auto; }
+.print-page, .print-page body { height: auto; }
+
+/* Settings bar (screen only) */
+.print-bar {
+  position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px;
+  padding: 10px 20px; background: #1d1b19; color: #eee; font-family: system-ui, sans-serif; font-size: 12px;
+}
+.print-bar label { display: flex; align-items: center; gap: 6px; }
+.print-bar select, .print-bar input[type=number] { font: inherit; padding: 3px 5px; }
+.print-bar input[type=number] { width: 56px; }
+.print-bar button { font: inherit; padding: 5px 12px; cursor: pointer; background: #f4e9dc; color: #111; border: 0; border-radius: 2px; }
+.print-info { color: #aaa; margin-left: auto; }
+
+.sheets { padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 24px; zoom: var(--preview, 1); }
+.sheet {
+  box-sizing: border-box; background: var(--space); overflow: hidden; display: flex; flex-direction: column;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.15);
+}
+.sheet-head {
+  display: flex; justify-content: space-between; align-items: flex-start; flex: none;
+  font-family: var(--font-label); font-size: 9pt; text-transform: var(--label-case); letter-spacing: var(--label-tracking); color: var(--ink-dim);
+}
+.sheet-title { font-family: var(--font-title); font-weight: var(--weight-title); font-style: var(--style-title); font-size: 16pt; color: var(--ink); text-transform: none; letter-spacing: 0; line-height: 1; }
+.sheet-cols { display: flex; justify-content: center; align-items: flex-start; gap: var(--pc-gap); flex: 1; }
+.pc-col { display: flex; flex-direction: column; gap: var(--pc-gap); width: var(--pc-width); }
+.pc-measure { width: var(--pc-width); display: flex; flex-direction: column; gap: var(--pc-gap); }
+
+/* A card: drawn at the panel's screen size, then scaled to the card width on paper. */
+.pcard {
+  zoom: var(--pc-zoom); width: var(--panel-width); box-sizing: border-box; break-inside: avoid;
+  background: var(--panel-bg); border: 1px solid var(--panel-line); border-radius: var(--radius); overflow: hidden;
+}
+.pcard-body { padding: 20px 22px 18px; }
+.pcard .type-image img { max-height: none; opacity: 1 !important; transition: none; }
+.pcard .type-image.pc-tall img { aspect-ratio: 1; object-fit: cover; }
+.pcard .type-image figcaption { position: static; background: none; padding: 4px 22px 0; color: var(--ink-faint); }
+.pcard .type-image.empty { aspect-ratio: 16 / 7; }
+
+.pc-row { display: flex; gap: 14px; align-items: flex-start; margin-top: 8px; }
+.pc-names { flex: 1; min-width: 0; }
+.pc-names .native { margin-top: 0; }
+.pc-names .type-name { margin: 8px 0 0; }
+.pc-locator { flex: none; width: 42%; height: auto; display: block; border: 1px solid var(--panel-line); }
+.pc-dots { fill: var(--accent); stroke: var(--dot-line); }
+.pc-also { margin: 8px 0 0; font-size: 12px; line-height: 1.35; color: var(--ink-dim); }
+.pc-also span { display: inline; }
+.pc-also span + span::before { content: ' · '; color: var(--ink-faint); }
+.pc-also i { font-family: var(--font-native); }
+.pc-also small { font-family: var(--font-ui); font-style: normal; font-size: 9px; color: var(--ink-faint); }
+.pcard .fields dt { margin-top: 12px; }
+.pcard .stories { margin-top: 14px; }
+.pcard .stories li { padding: 5px 0; font-size: calc(var(--body-size) * 0.95); }
+.pcard .meta { margin-top: 14px; }
+
+@media print {
+  .print-bar { display: none; }
+  .print-page { background: none; }
+  .sheets { padding: 0; gap: 0; zoom: 1; display: block; }
+  .sheet { box-shadow: none; break-after: page; }
+  .sheet:last-child { break-after: auto; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
