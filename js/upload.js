@@ -209,9 +209,98 @@ async function commonsQuery(params) {
     };
   }).filter((r) => /^image\/(jpeg|png|webp|tiff|gif)/.test(r.mime ?? ''));
 }
-const commonsSearch = (q, limit) => commonsQuery({
+// Commons search only matches files whose own page has every word, so a lot is missed. Good pictures
+// are often filed in categories instead ("Category:Russian stoves"), so categories matching the words
+// are searched too and their files added. A search with no hits is tried again with any of the words.
+const commonsFiles = (q, limit) => commonsQuery({
   generator: 'search', gsrsearch: `${q} filetype:bitmap`, gsrnamespace: 6, gsrlimit: limit, iiurlwidth: 360,
 });
+const commonsCategoryFiles = (cat, limit) => commonsQuery({
+  generator: 'categorymembers', gcmtitle: cat, gcmtype: 'file', gcmlimit: limit, iiurlwidth: 360,
+});
+async function commonsCategories(q, limit = 4) {
+  const url = new URL('https://commons.wikimedia.org/w/api.php');
+  Object.entries({ action: 'query', format: 'json', origin: '*', list: 'search', srsearch: q, srnamespace: 14, srlimit: limit })
+    .forEach(([k, v]) => url.searchParams.set(k, v));
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  return ((await res.json()).query?.search ?? []).map((r) => r.title);
+}
+async function commonsSearch(q, limit, picker) {
+  const [files, cats] = await Promise.all([commonsFiles(q, limit).catch(() => []), commonsCategories(q).catch(() => [])]);
+  if (picker && cats.length) addCategoryChips(picker, cats);
+  const fromCats = cats.length ? await commonsCategoryFiles(cats[0], limit).catch(() => []) : [];
+  let list = interleave([files, fromCats]);
+  if (!list.length && /\s/.test(q)) list = await commonsFiles(q.split(/\s+/).join(' OR '), limit).catch(() => []);
+  return list;
+}
+function interleave(lists) {
+  const out = [], seen = new Set();
+  for (let i = 0; lists.some((l) => l[i]); i++) for (const l of lists) if (l[i] && !seen.has(l[i].title)) { seen.add(l[i].title); out.push(l[i]); }
+  return out;
+}
+function addCategoryChips(picker, cats) {
+  const box = picker.querySelector('.pk-cats');
+  if (!box) return;
+  const have = new Set([...box.querySelectorAll('[data-cat]')].map((b) => b.dataset.cat));
+  const add = cats.filter((c) => !have.has(c));
+  if (!add.length) return;
+  box.hidden = false;
+  box.insertAdjacentHTML('beforeend', add.map((c) => `<button type="button" class="pk-chip pk-cat" data-cat="${esc(c)}">${esc(c.replace(/^Category:/, ''))}</button>`).join(''));
+}
+
+// Searching elsewhere: Google has no free image search for programs any more (its search API is
+// closed to new users and ends in January 2027), so these open Google in a new tab with the words filled in.
+const googleImages = (q, commonsOnly = false) =>
+  `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(commonsOnly ? `${q} site:commons.wikimedia.org` : q)}`;
+
+// A pasted link: a Commons file page (or its image address) brings its own picture and credit.
+function commonsTitleFrom(link) {
+  try {
+    const u = new URL(link);
+    if (/commons\.wikimedia\.org$/.test(u.hostname)) {
+      const m = decodeURIComponent(u.pathname).match(/\/wiki\/(File:.+)$/) ?? [null, u.searchParams.get('title')];
+      if (m[1]?.startsWith('File:')) return m[1].replace(/_/g, ' ');
+      const hash = decodeURIComponent(u.hash).match(/#\/media\/(File:.+)$/);
+      if (hash) return hash[1].replace(/_/g, ' ');
+    }
+    if (/upload\.wikimedia\.org$/.test(u.hostname)) {
+      const parts = decodeURIComponent(u.pathname).split('/');
+      const thumb = parts.indexOf('thumb');
+      return `File:${(thumb >= 0 ? parts[thumb + 3] : parts[parts.length - 1]).replace(/_/g, ' ')}`;
+    }
+    if (/wikipedia\.org$/.test(u.hostname)) {
+      const hash = decodeURIComponent(u.hash).match(/#\/media\/(?:File|[^:]+):(.+)$/);
+      if (hash) return `File:${hash[1].replace(/_/g, ' ')}`;
+      const m = decodeURIComponent(u.pathname).match(/\/wiki\/(?:File|[^:/]+):(.+\.(?:jpe?g|png|tiff?|webp|gif))$/i);
+      if (m) return `File:${m[1].replace(/_/g, ' ')}`;
+    }
+  } catch { /* not a link */ }
+  return null;
+}
+async function useLink(item, link) {
+  const id = item.dataset.id;
+  const status = item.querySelector('.up-status');
+  const title = commonsTitleFrom(link);
+  if (title) {
+    status.textContent = 'reading Commons…'; status.className = 'up-status';
+    const r = (await commonsQuery({ titles: title, iiurlwidth: 360 }).catch(() => []))[0];
+    if (r) { pickResult(item, r); return; }
+    status.textContent = 'Commons file not found'; status.className = 'up-status err';
+    return;
+  }
+  // Any other image address: most sites do not let other pages download their pictures, so this
+  // often fails; copying the picture itself (right-click → Copy image) and pasting it always works.
+  status.textContent = 'fetching…'; status.className = 'up-status';
+  try {
+    const res = await fetch(link);
+    const blob = await res.blob();
+    if (!res.ok || !blob.type.startsWith('image/')) throw new Error();
+    handleFile(id, new File([blob], `${id}.jpg`, { type: blob.type }));
+  } catch {
+    status.textContent = 'that site does not allow it: copy the image itself and paste it here'; status.className = 'up-status err';
+  }
+}
 const commonsLarge = async (title) => (await commonsQuery({ titles: title, iiurlwidth: UP.maxSize }))[0];
 
 const cleanQuery = (q) => String(q ?? '').replace(/\(.*?\)/g, ' ').replace(/\s+/g, ' ').trim();
@@ -274,8 +363,10 @@ function handleFile(id, file, credit = null) {
   if (!file?.type?.startsWith('image/')) { message(`${file?.name ?? 'That'} is not an image.`); return; }
   // A manual image takes the credit typed in its row (if any); a Commons image brings its own.
   if (!credit) {
-    const typed = document.querySelector(`[data-id="${CSS.escape(id)}"] .credit-input`)?.value.trim();
-    credit = typed ? { text: typed } : null;
+    const row = document.querySelector(`[data-id="${CSS.escape(id)}"]`);
+    const typed = row?.querySelector('.credit-input')?.value.trim();
+    const source = row?.querySelector('.source-input')?.value.trim();
+    credit = typed ? { text: typed, ...(source ? { source } : {}) } : null;
   }
   const row = document.querySelector(`[data-id="${CSS.escape(id)}"]`);
   const status = row?.querySelector('.up-status');
@@ -383,12 +474,13 @@ function openCreditEditor(item) {
   box.hidden = false;
   input.focus();
 }
-function saveCredit(item, text) {
+function saveCredit(item, text, source) {
   const id = item.dataset.id;
   if (!state.token) { message('Connect a GitHub token first.'); return; }
   const prev = state.credits[id];
-  if (text === creditText(prev)) return;
-  const credit = text ? { text, ...(prev?.source ? { source: prev.source } : {}) } : null;
+  const link = source ?? prev?.source ?? '';
+  if (text === creditText(prev) && link === (prev?.source ?? '')) return;
+  const credit = text ? { text, ...(link ? { source: link } : {}) } : null;
   enqueue(async () => {
     try {
       await updateCredits(id, credit);
@@ -396,7 +488,7 @@ function saveCredit(item, text) {
       const typed = item.querySelector('.credit-input'); if (typed) typed.value = credit?.text ?? '';
       message(text ? `Credit saved for ${id}.` : `Credit removed for ${id}.`);
     } catch (err) { message(`Could not save credit: ${err.message}`); return false; }
-  }, () => saveCredit(item, text), `credit ${id}`);
+  }, () => saveCredit(item, text, source), `credit ${id}`);
 }
 
 function updateSummary() {
@@ -466,12 +558,26 @@ function openPicker(item) {
     </div>
     ${extra.length ? `<div class="pk-search pk-local"><span class="pk-note">Other names:</span>
       ${extra.map((q) => `<button type="button" class="pk-chip" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>` : ''}
+    <div class="pk-search pk-local pk-cats" hidden><span class="pk-note">Commons categories:</span></div>
     <div class="pk-results"></div>
+    <div class="pk-elsewhere">
+      <span class="pk-note">Not here? Look on Google:</span>
+      <button type="button" class="pk-google">Google Images ↗</button>
+      <button type="button" class="pk-google" data-commons="1">Google, Commons only ↗</button>
+    </div>
+    <div class="pk-manual pk-paste">
+      <label>Paste a Commons link (picture and credit come with it), or a copied image (right-click → Copy image)
+        <input type="text" class="pk-link" placeholder="Paste here: link or image">
+      </label>
+    </div>
     <div class="pk-manual">
-      <label>Credit for an image you add by hand (drop it on this row or click the thumbnail)
+      <label>Credit for an image you add by hand (paste, drop on this row or click the thumbnail)
         <input type="text" class="credit-input" placeholder="e.g. Photo: J. Smith, Lithuanian Open-Air Museum, CC BY-SA 4.0" value="${esc(state.credits[t.id]?.text ?? '')}">
       </label>
-      ${state.existing.has(t.id) ? '<button type="button" class="pk-save-credit">save credit only</button>' : ''}
+      <label>Where it is from (page link, optional)
+        <input type="url" class="source-input" placeholder="https://…" value="${esc(state.credits[t.id]?.source ?? '')}">
+      </label>
+      <button type="button" class="pk-save-credit">save credit</button>
     </div>`;
   picker.hidden = false;
   runSearch(picker, queries.slice(0, 3));
@@ -482,21 +588,23 @@ async function runSearch(picker, queries) {
   box.innerHTML = '<p class="pk-note">searching Wikimedia Commons…</p>';
   try {
     const per = Math.ceil(UP.commonsResults / queries.length) + 2;
-    const lists = await Promise.all(queries.map((q) => commonsSearch(q, per).catch(() => [])));
+    const lists = await Promise.all(queries.map((q) => commonsSearch(q, per, picker).catch(() => [])));
     const seen = new Set(), results = [];
     for (let i = 0; results.length < UP.commonsResults && lists.some((l) => l[i]); i++) {
       for (const l of lists) if (l[i] && !seen.has(l[i].title)) { seen.add(l[i].title); results.push(l[i]); }
     }
     picker._results = results;
     box.innerHTML = results.length
-      ? results.map((r, i) => `<button type="button" class="pk-result" data-i="${i}" title="${esc(r.name)}">
-          <img src="${esc(r.thumb)}" alt="" loading="lazy">
-          <span>${esc(r.author)}${r.licence ? ` · ${esc(r.licence)}` : ''}</span></button>`).join('')
-      : '<p class="pk-note">Nothing found. Try another word, or add an image by hand below.</p>';
+      ? resultsHtml(results)
+      : '<p class="pk-note">Nothing found on Commons. Try another word or a category, or look on Google below.</p>';
   } catch (err) {
     box.innerHTML = `<p class="pk-note">Search failed: ${esc(err.message)}</p>`;
   }
 }
+
+const resultsHtml = (results) => results.map((r, i) => `<button type="button" class="pk-result" data-i="${i}" title="${esc(r.name)}">
+  <img src="${esc(r.thumb)}" alt="" loading="lazy">
+  <span>${esc(r.author)}${r.licence ? ` · ${esc(r.licence)}` : ''}</span></button>`).join('');
 
 async function pickResult(item, r) {
   const id = item.dataset.id;
@@ -525,7 +633,23 @@ list.addEventListener('click', (e) => {
   if (btn?.classList.contains('pk-go')) { runSearch(item.querySelector('.up-picker'), [item.querySelector('.pk-q').value.trim()]); return; }
   if (btn?.classList.contains('pk-chip')) { item.querySelector('.pk-q').value = btn.dataset.q; runSearch(item.querySelector('.up-picker'), [btn.dataset.q]); return; }
   if (btn?.classList.contains('pk-result')) { pickResult(item, item.querySelector('.up-picker')._results[btn.dataset.i]); return; }
-  if (btn?.classList.contains('pk-save-credit')) { saveCredit(item, item.querySelector('.credit-input').value.trim()); return; }
+  if (btn?.classList.contains('pk-cat')) {
+    const picker = item.querySelector('.up-picker');
+    const box = picker.querySelector('.pk-results');
+    box.innerHTML = '<p class="pk-note">opening the category…</p>';
+    commonsCategoryFiles(btn.dataset.cat, 40).then((r) => {
+      picker._results = r;
+      box.innerHTML = r.length ? resultsHtml(r) : '<p class="pk-note">No pictures directly in this category (it may only have sub-categories).</p>';
+    });
+    return;
+  }
+  if (btn?.classList.contains('pk-google')) {
+    const q = item.querySelector('.pk-q').value.trim();
+    window.open(googleImages(q, !!btn.dataset.commons), '_blank', 'noopener');
+    item.querySelector('.pk-link')?.focus();
+    return;
+  }
+  if (btn?.classList.contains('pk-save-credit')) { saveCredit(item, item.querySelector('.credit-input').value.trim(), item.querySelector('.source-input')?.value.trim()); return; }
   if (btn?.classList.contains('up-edit-credit')) { openCreditEditor(item); return; }
   if (btn?.classList.contains('up-credit-cancel')) { item.querySelector('.up-credit-edit').hidden = true; return; }
   if (btn?.classList.contains('up-credit-save')) {
@@ -559,7 +683,11 @@ list.addEventListener('drop', (e) => {
   e.preventDefault();
   const item = e.target.closest('.up-item');
   item?.classList.remove('over');
-  if (item && e.dataTransfer.files[0]) handleFile(item.dataset.id, e.dataTransfer.files[0]);
+  if (!item) return;
+  if (e.dataTransfer.files[0]) { handleFile(item.dataset.id, e.dataTransfer.files[0]); return; }
+  // An image dragged from another tab arrives as its address.
+  const link = (e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain')).split('\n')[0].trim();
+  if (/^https?:\/\//.test(link)) useLink(item, link);
 });
 $('bulk').addEventListener('drop', (e) => {
   e.preventDefault();
@@ -572,6 +700,27 @@ $('bulk').addEventListener('drop', (e) => {
   }
   if (unmatched.length) message(`No type ID found for: ${unmatched.join(', ')}`);
 });
+// Pasting: into a row's paste box, or anywhere while one row's search is open.
+// A copied image is uploaded; a pasted link is read (see useLink).
+document.addEventListener('paste', (e) => {
+  const inBox = e.target.closest?.('.pk-link');
+  const typing = !inBox && e.target.closest?.('input, textarea');
+  if (typing) return; // normal pasting into the other fields
+  const item = inBox?.closest('.up-item') ?? document.querySelector('.up-picker:not([hidden])')?.closest('.up-item');
+  if (!item) return;
+  const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'));
+  if (file) { e.preventDefault(); handleFile(item.dataset.id, file); if (inBox) inBox.value = ''; return; }
+  const text = e.clipboardData?.getData('text')?.trim();
+  if (text && /^https?:\/\//.test(text)) {
+    e.preventDefault();
+    if (inBox) inBox.value = text;
+    useLink(item, text);
+  }
+});
+list.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.classList.contains('pk-link') && e.target.value.trim()) useLink(e.target.closest('.up-item'), e.target.value.trim());
+});
+
 // Dropping outside a target should not open the image in the tab.
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => e.preventDefault());

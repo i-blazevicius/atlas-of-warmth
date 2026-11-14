@@ -65,7 +65,7 @@ code { font-family: var(--font-ui); font-size: 0.85em; color: var(--accent); }
 .up-picker { margin: 12px 0 4px 112px; }
 .pk-search { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 10px; }
 .pk-search input { flex: 1 1 220px; }
-.pk-search button, .pk-manual button {
+.pk-search button, .pk-manual button, .pk-elsewhere button {
   background: none; border: 1px solid var(--panel-line); color: var(--ink-dim); cursor: pointer;
   font-family: var(--font-ui); font-size: 10.5px; padding: 5px 8px; border-radius: var(--radius);
 }
@@ -104,3 +104,12 @@ code { font-family: var(--font-ui); font-size: 0.85em; color: var(--accent); }
 .up-credit-edit { display: flex; gap: 6px; padding: 0 0 10px; }
 .up-credit-edit[hidden] { display: none; }
 .up-credit-edit input { flex: 1; min-width: 0; }
+
+/* Searching elsewhere and pasting */
+.pk-cats[hidden] { display: none; }
+.pk-elsewhere { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 12px; }
+.pk-elsewhere .pk-note { margin: 0 4px 0 0; }
+.pk-elsewhere button:hover { color: var(--ink); border-color: var(--accent); }
+.pk-paste { margin-top: 10px; }
+.pk-manual label + label { flex: 0.8; }
+.pk-results .pk-note { grid-column: 1 / -1; }
