@@ -100,7 +100,8 @@
         "--body-size": "16px",
         "--label-size": "9.5px",
         "--label-case": "uppercase",
-        "--label-tracking": "0.1em"
+        "--label-tracking": "0.1em",
+        "--image-bg": "#171513"
       },
       "map": {
         "ocean": "#171513",
