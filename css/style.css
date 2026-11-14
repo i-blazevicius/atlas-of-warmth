@@ -190,6 +190,8 @@ button { font: inherit; color: inherit; }
 /* The frame takes the image's own proportions; very tall images are capped */
 .type-image img { width: 100%; height: auto; max-height: 70vh; object-fit: contain; display: block; filter: var(--image-filter); }
 .type-image { position: relative; }
+.type-image img { transition: opacity 0.25s; }
+.type-image img.loading { opacity: 0; }
 .type-image figcaption {
   position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 10px 5px;
   background: linear-gradient(transparent, rgba(13, 12, 11, 0.85));

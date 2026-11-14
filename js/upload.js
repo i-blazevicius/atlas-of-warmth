@@ -115,6 +115,27 @@ async function updateCredits(id, credit) {
   });
   state.credits = sorted;
 }
+// The image index (data/images.json): file name and size of every image, so the map can
+// leave the right space for an image before it has loaded.
+async function updateImageIndex(id, entry) {
+  const path = CONFIG.data.images;
+  let sha, data = {};
+  try {
+    const f = await gh(`/contents/${path}?ref=${GH.branch}&t=${Date.now()}`);
+    sha = f.sha; data = JSON.parse(base64ToText(f.content));
+  } catch { /* file does not exist yet */ }
+  if (entry) data[id] = entry; else delete data[id];
+  const sorted = Object.fromEntries(Object.keys(data).sort().map((k) => [k, data[k]]));
+  await gh(`/contents/${path}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      message: `${entry ? 'Index' : 'Unindex'} image ${id}`,
+      content: textToBase64(JSON.stringify(sorted, null, 2) + '\n'),
+      branch: GH.branch,
+      ...(sha ? { sha } : {}),
+    }),
+  });
+}
 const creditText = (c) => (!c ? '' : c.text ?? [c.author, c.licence].filter(Boolean).join(' · '));
 
 // ── Wikimedia Commons ──────────────────────────────────────
@@ -226,6 +247,7 @@ function handleFile(id, file, credit = null) {
       if (state.token) {
         setStatus('saving…');
         await commitImage(id, blob);
+        await updateImageIndex(id, { file: `${id}.jpg`, w, h });
         setStatus('saving credit…');
         await updateCredits(id, credit);
         setStatus(`saved · ${w}×${h} · ${kb} KB${credit ? '' : ' · no credit'}`, credit ? 'ok' : '');
@@ -317,6 +339,7 @@ async function removeImage(id, button) {
         });
       }
       state.existing.delete(id);
+      await updateImageIndex(id, null);
       if (state.credits[id]) await updateCredits(id, null);
       row.querySelector('.up-thumb').textContent = 'drop image';
       const cl = row.querySelector('.up-credit'); if (cl) cl.textContent = '';

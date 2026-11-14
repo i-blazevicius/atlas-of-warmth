@@ -18,6 +18,7 @@ export default {
     styles: 'data/styles.json',        // style versions (fonts and colours), edited with the style panel
     borders: 'data/borders.json',
     credits: 'data/credits.json',      // image credits, written by the upload page
+    images: 'data/images.json',        // image file names and sizes, written by the upload page
     regions: 'data/regions/',          // region shapes per country (US-CA, IT-88 …), see tools/build_regions.py      // land-border lengths between neighbours, used for inferred gaps
   },
 

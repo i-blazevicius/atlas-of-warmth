@@ -863,8 +863,9 @@ function renderType(t, nameIndex = -1, body = $('panel-body')) {
   const others = t.names.length > 1 || (t.names.length === 1 && t.names[0].name !== (t.translit || t.name))
     ? `<p class="also-known">${t.names.map((n, i) => `<button type="button" data-name="${i}" class="${i === nameIndex ? 'current' : ''}" title="${esc(n.language)}${n.note ? ' · ' + esc(n.note) : ''}">${esc(n.name)}<span>${esc(n.where.slice(0, 2).join(' '))}${n.where.length > 2 ? '…' : ''}</span></button>`).join('')}</p>`
     : '';
+  const keep = body.querySelector(`.type-image[data-id="${t.id}"]`); // same type: keep its image, no reload
   body.innerHTML = `
-    <figure class="type-image"></figure>
+    <figure class="type-image" data-id="${esc(t.id)}"></figure>
     ${t.family ? `<p class="family">${esc(t.family)}</p>` : ''}
     <h1 class="translit">${esc(shown.name)}</h1>
     ${showNative ? `<p class="native">${esc(shown.native)}</p>` : ''}
@@ -878,7 +879,8 @@ function renderType(t, nameIndex = -1, body = $('panel-body')) {
     ${t.cases.length ? `<section class="stories"><h2>Stories</h2><ul>${caseItems}</ul></section>` : ''}
     <p class="meta">${esc(t.id)} · ${Math.abs(t.lat)}° ${t.lat < 0 ? 'S' : 'N'}, ${Math.abs(t.lon)}° ${t.lon < 0 ? 'W' : 'E'}</p>`;
   if (body === $('panel-body')) { $('panel').hidden = false; body.scrollTop = 0; }
-  loadImage(t.id, body.querySelector('.type-image'));
+  if (keep) body.querySelector('.type-image').replaceWith(keep);
+  else loadImage(t.id, body.querySelector('.type-image'));
 }
 
 // ── Floating cards (CONFIG.cards = 'float') ────────────────
@@ -950,14 +952,42 @@ function pruneCards() {
 }
 
 // Try images/T014.jpg, .jpeg, .png, .webp in turn.
+function addCredit(id, figure) {
+  const c = state.credits?.[id];
+  if (!c) return;
+  const cap = document.createElement('figcaption');
+  const label = c.text ?? [c.author, c.licence].filter(Boolean).join(' · ');
+  cap.innerHTML = c.source ? `<a href="${esc(c.source)}" target="_blank" rel="noopener">${esc(label)}</a>` : esc(label);
+  figure.append(cap);
+}
+function emptySlot(id, figure) {
+  if (CONFIG.images.showEmptySlot) { figure.classList.add('empty'); figure.textContent = `no image yet · ${id}`; }
+  else figure.remove();
+}
+// With the image index (data/images.json) the frame gets the image's exact proportions straight away,
+// so the text below never jumps; the image fades in when it arrives.
 function loadImage(id, figure) {
+  if (state.imageIndex) {
+    const info = state.imageIndex[id];
+    if (!info) { emptySlot(id, figure); return; }
+    const img = new Image();
+    img.alt = '';
+    img.width = info.w; img.height = info.h;
+    img.className = 'loading';
+    img.onload = () => img.classList.remove('loading');
+    img.onerror = () => { if (figure.isConnected) { figure.replaceChildren(); emptySlot(id, figure); } };
+    img.src = `${CONFIG.images.folder}${info.file}`;
+    figure.replaceChildren(img);
+    addCredit(id, figure);
+    return;
+  }
+  // No index: try images/T014.jpg, .jpeg, .png, .webp in turn.
   const exts = [...CONFIG.images.extensions];
   const tryNext = () => {
     if (!figure.isConnected) return;
     const ext = exts.shift();
     if (!ext) {
-      if (CONFIG.images.showEmptySlot) { figure.classList.add('empty'); figure.textContent = `no image yet · ${id}`; }
-      else figure.remove();
+      emptySlot(id, figure);
       return;
     }
     const img = new Image();
@@ -965,13 +995,7 @@ function loadImage(id, figure) {
     img.onload = () => {
       if (!figure.isConnected) return;
       figure.replaceChildren(img);
-      const c = state.credits?.[id];
-      if (c) {
-        const cap = document.createElement('figcaption');
-        const label = c.text ?? [c.author, c.licence].filter(Boolean).join(' · ');
-        cap.innerHTML = c.source ? `<a href="${esc(c.source)}" target="_blank" rel="noopener">${esc(label)}</a>` : esc(label);
-        figure.append(cap);
-      }
+      addCredit(id, figure);
     };
     img.onerror = tryNext;
     img.src = `${CONFIG.images.folder}${id}.${ext}`;
@@ -1098,6 +1122,16 @@ $('filter-images').addEventListener('change', (e) => { state.onlyImages = e.targ
 
 // Which types have an image: list the repository's images folder (GitHub API, no login needed).
 async function loadImageList() {
+  // The image index (written by the upload page) lists every image with its size.
+  try {
+    const r = await fetch(`${CONFIG.data.images}?t=${Date.now()}`, { cache: 'no-store' });
+    if (r.ok) {
+      state.imageIndex = await r.json();
+      state.images = new Set(Object.keys(state.imageIndex));
+      updateCount();
+      return;
+    }
+  } catch { /* fall back to listing the folder on GitHub */ }
   const { owner, repo, branch } = CONFIG.github;
   const folder = CONFIG.images.folder.replace(/\/$/, '');
   try {

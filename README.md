@@ -78,6 +78,7 @@ Switch them in the control panel. Both are built by `tools/build_climate.py` fro
 
 | What | Where |
 |---|---|
+| Image file names and sizes (kept by the upload page, so the card leaves the right space before an image loads) | `data/images.json` |
 | Map colours, point size, shading, start view, cluster settings, column names | `js/config.js` |
 | Fonts and colours | the style panel (above) / `data/styles.json` |
 | Panel layout, clusters, legend | `css/style.css` (variables at the top are the fallbacks) |
