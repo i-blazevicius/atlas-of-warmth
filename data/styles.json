@@ -30,6 +30,11 @@
       "family": "DotGothic16",
       "google": "DotGothic16:ital,wght@0,400;0,700;1,400;1,700",
       "fallback": "sans-serif"
+    },
+    {
+      "family": "Doto",
+      "google": "Doto:ital,wght@0,100..900;1,100..900",
+      "fallback": "sans-serif"
     }
   ],
   "styles": [
