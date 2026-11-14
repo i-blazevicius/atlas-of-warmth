@@ -262,7 +262,7 @@
         "--style-native": "italic",
         "--style-body": "normal",
         "--style-display": "italic",
-        "--node": "#ffffff",
+        "--node": "#edd3db",
         "--dot-line": "#373737"
       },
       "map": {
@@ -273,7 +273,7 @@
         "fringe": "#929292",
         "coreLine": "#828282",
         "countryOutline": "#ac2b4f",
-        "graticule": "#bdc5b8"
+        "graticule": "#bebebe"
       }
     }
   ]
