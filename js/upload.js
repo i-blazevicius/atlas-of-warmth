@@ -2,6 +2,12 @@
 // committed to the repository's images/ folder (or downloaded if no token is set).
 // config.js is loaded with the same cache-busting query as this file.
 const CONFIG = (await import(`./config.js${new URL(import.meta.url).search}`)).default;
+// Same fonts and colours as the map: the default style version.
+{
+  const S = await import(`./styles.js${new URL(import.meta.url).search}`);
+  const { lib } = await S.loadLibrary({ ...CONFIG, stylePanel: false });
+  S.applyCss(S.startingStyle(lib, { stylePanel: false }), lib.fonts);
+}
 
 const $ = (id) => document.getElementById(id);
 const GH = CONFIG.github;

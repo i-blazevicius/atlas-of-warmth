@@ -81,6 +81,18 @@ function boxToMap([w, s, e, n]) {
 
 const T = CONFIG.theme;
 const V = { ...CONFIG.view };
+
+// Style version (fonts and colours) from data/styles.json, applied before anything is drawn. See js/styles.js.
+const Styles = await import(`./styles.js${new URL(import.meta.url).search}`);
+const styleLib = await Styles.loadLibrary(CONFIG);
+const startStyle = Styles.startingStyle(styleLib.lib, CONFIG);
+if (startStyle) {
+  Styles.applyCss(startStyle, styleLib.lib.fonts);
+  Object.assign(T, startStyle.map ?? {});
+  if (startStyle.css?.['--space']) T.space = startStyle.css['--space'];
+  if (T.core) document.documentElement.style.setProperty('--area', T.core);
+  if (T.fringe) document.documentElement.style.setProperty('--hatch', T.fringe);
+}
 const $ = (id) => document.getElementById(id);
 
 const state = {
@@ -515,6 +527,21 @@ map.keyboard.disableRotation();
 
 const mapLoaded = new Promise((resolve) => map.once('load', resolve));
 document.body.style.background = T.space;
+
+// Map colours from a style version (the style panel calls this while you edit).
+function setMapColours(c) {
+  for (const [k, v] of Object.entries(c)) if (v) T[k] = v;
+  document.body.style.background = T.space;
+  document.documentElement.style.setProperty('--area', T.core);
+  document.documentElement.style.setProperty('--hatch', T.fringe);
+  if (!map.getLayer('land')) return;
+  map.setPaintProperty('ocean', 'background-color', T.ocean);
+  map.setPaintProperty('ocean-mask', 'fill-color', T.ocean);
+  map.setPaintProperty('land', 'fill-color', T.land);
+  map.setPaintProperty('borders', 'line-color', T.border);
+  for (const id of ['core', 'region-core']) map.setPaintProperty(id, 'fill-color', T.core);
+  map.updateImage('hatch', hatchImage(T.fringe, T.fringeOpacity));
+}
 
 function addLayers(countries) {
   map.addImage('hatch', hatchImage(T.fringe, T.fringeOpacity), { pixelRatio: HATCH.ratio });
@@ -1135,6 +1162,7 @@ async function start() {
   applyProjection();
   {
     addLayers(countries);
+    if (CONFIG.stylePanel) Styles.initPanel({ CONFIG, lib: styleLib.lib, sha: styleLib.sha, current: startStyle, setMapColours });
     refreshDots();
     applyClimate();
     map.on('render', () => { if (map.getSource('types') && map.isSourceLoaded('types')) { updateClusters(); nudgeSelected(); } });

@@ -68,10 +68,19 @@ Switch them in the control panel. Both are built by `tools/build_climate.py` fro
 
 ## Changing the look
 
+**Style panel.** With `stylePanel: true` in `js/config.js`, a *Style* panel sits under the map controls:
+
+- **Versions:** click one to switch fonts and colours. *Make default* sets what visitors see.
+- **Accent, More colours, Fonts:** any change makes an *Unsaved changes* entry, so the saved versions stay untouched. *Save* (with a name) adds it to the list; *Discard* goes back.
+- **Add a font:** type a Google font's name or paste its fonts.google.com link. For your own font file, put it in the `fonts/` folder of the repository, then type its file name.
+- Everything is stored in `data/styles.json`. Saving writes to the repository with the GitHub token from the upload page; without a token, it is kept in this browser only.
+- When you are done, set `stylePanel: false`: the panel disappears and everyone gets the default version.
+
 | What | Where |
 |---|---|
 | Map colours, point size, shading, start view, cluster settings, column names | `js/config.js` |
-| Fonts, panels, control panel, clusters, legend | `css/style.css` (variables at the top) |
+| Fonts and colours | the style panel (above) / `data/styles.json` |
+| Panel layout, clusters, legend | `css/style.css` (variables at the top are the fallbacks) |
 | Control panel contents | `index.html` |
 
 ## Experiments (off by default)

@@ -15,6 +15,7 @@ export default {
     countries: 'data/countries.geojson',
     labels: 'data/labels.json',        // a point inside every country and region, for placing name dots
     ocean: 'data/ocean.geojson',       // only drawn over the climate underlay, to keep coastlines crisp
+    styles: 'data/styles.json',        // style versions (fonts and colours), edited with the style panel
     borders: 'data/borders.json',
     credits: 'data/credits.json',      // image credits, written by the upload page
     regions: 'data/regions/',          // region shapes per country (US-CA, IT-88 …), see tools/build_regions.py      // land-border lengths between neighbours, used for inferred gaps
@@ -92,7 +93,11 @@ export default {
     credit: 'Climate: WorldClim 2.1, monthly means 1970–2000 (Fick & Hijmans 2017).',
   },
 
-  // Experiments (both easy to switch off). Can also be tried for one visit from the address bar:
+  // Style panel under the map controls, for trying fonts and colours and saving them as versions.
+  // true = shown, false = hidden (visitors then see the default version from data/styles.json).
+  stylePanel: true,
+
+  // Experiments (both off). Can also be tried for one visit from the address bar:
   //   …/atlas-of-warmth/?cards=float      …/atlas-of-warmth/?flat=equalearth
   cards: 'panel',            // 'panel' = one card docked on the right; 'float' = up to maxCards cards beside their dots
   maxCards: 5,

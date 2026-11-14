@@ -1,0 +1,102 @@
+{
+  "default": "Noto Sans, pink",
+  "fonts": [
+    {
+      "family": "Noto Sans",
+      "google": "Noto+Sans:ital,wght@0,300..700;1,300..700",
+      "fallback": "sans-serif"
+    },
+    {
+      "family": "Noto Sans Display",
+      "google": "Noto+Sans+Display:wght@400..700",
+      "fallback": "sans-serif"
+    },
+    {
+      "family": "Noto Serif",
+      "google": "Noto+Serif:ital,wght@0,300..700;1,300..700",
+      "fallback": "serif"
+    },
+    {
+      "family": "Source Serif 4",
+      "google": "Source+Serif+4:ital,opsz,wght@0,8..60,300..600;1,8..60,300..600",
+      "fallback": "serif"
+    },
+    {
+      "family": "IBM Plex Mono",
+      "google": "IBM+Plex+Mono:wght@400;500",
+      "fallback": "monospace"
+    }
+  ],
+  "styles": [
+    {
+      "name": "Noto Sans, pink",
+      "css": {
+        "--accent": "#f52261",
+        "--ink": "#f4e9dc",
+        "--ink-dim": "#a39888",
+        "--ink-faint": "#6b6157",
+        "--panel-bg": "#141210",
+        "--panel-line": "#3a342e",
+        "--space": "#0d0c0b",
+        "--font-title": "'Noto Sans Display', sans-serif",
+        "--font-display": "'Noto Sans Display', sans-serif",
+        "--font-body": "'Noto Sans', sans-serif",
+        "--font-label": "'Noto Sans', sans-serif",
+        "--font-ui": "'Noto Sans', sans-serif",
+        "--font-native": "'Noto Sans', 'Noto Sans SC', 'Noto Sans JP', 'Noto Sans KR', 'Noto Sans Armenian', 'Noto Sans Georgian', 'Noto Sans Gurmukhi', 'Noto Sans Devanagari', 'Noto Sans Arabic', 'Noto Sans Canadian Aboriginal', sans-serif",
+        "--weight-title": "700",
+        "--weight-display": "500",
+        "--weight-body": "400",
+        "--label-weight": "500",
+        "--title-size": "26px",
+        "--name-size": "30px",
+        "--body-size": "14px",
+        "--label-size": "11px",
+        "--label-case": "none",
+        "--label-tracking": "0em"
+      },
+      "map": {
+        "ocean": "#171513",
+        "land": "#24211d",
+        "border": "#6b6157",
+        "core": "#8a8177",
+        "fringe": "#a39888"
+      }
+    },
+    {
+      "name": "Serif, orange",
+      "css": {
+        "--accent": "#e8662a",
+        "--ink": "#f4e9dc",
+        "--ink-dim": "#a39888",
+        "--ink-faint": "#6b6157",
+        "--panel-bg": "#141210",
+        "--panel-line": "#3a342e",
+        "--space": "#0d0c0b",
+        "--font-title": "'Source Serif 4', serif",
+        "--font-display": "'Source Serif 4', serif",
+        "--font-body": "'Source Serif 4', serif",
+        "--font-label": "'IBM Plex Mono', monospace",
+        "--font-ui": "'IBM Plex Mono', monospace",
+        "--font-native": "'Noto Serif', 'Noto Serif SC', 'Noto Serif JP', 'Noto Serif KR', 'Noto Serif Armenian', 'Noto Serif Georgian', 'Noto Serif Gurmukhi', 'Noto Serif Devanagari', 'Noto Naskh Arabic', 'Noto Sans Canadian Aboriginal', serif",
+        "--weight-title": "300",
+        "--weight-display": "300",
+        "--weight-body": "400",
+        "--label-weight": "400",
+        "--title-size": "26px",
+        "--name-size": "30px",
+        "--body-size": "16px",
+        "--label-size": "9.5px",
+        "--label-case": "uppercase",
+        "--label-tracking": "0.1em"
+      },
+      "map": {
+        "ocean": "#171513",
+        "land": "#24211d",
+        "border": "#6b6157",
+        "core": "#8a8177",
+        "fringe": "#a39888"
+      }
+    }
+  ]
+}
