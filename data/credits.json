@@ -196,5 +196,12 @@
     "licenceUrl": "",
     "source": "https://commons.wikimedia.org/wiki/File:Afghan_Nomads_from_the_early_20th_century.jpg",
     "title": "Afghan Nomads from the early 20th century"
+  },
+  "T047": {
+    "author": "Michael Coghlan @ Flickr",
+    "licence": "CC BY-SA 2.0",
+    "licenceUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Bedouin_tent_with_a_hearth_at_the_center_at_the_National_Museum_of_Qatar.jpg",
+    "title": "Bedouin tent with a hearth at the center at the National Museum of Qatar"
   }
 }
