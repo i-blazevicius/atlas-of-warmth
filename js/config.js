@@ -65,7 +65,7 @@ export default {
     story: 'Story',          // a column with the story text; shown first, in full, if it exists
   },
   // Case columns never shown in the story panel (the rest are listed under the story).
-  caseHiddenColumns: ['ID', 'Case name', 'Story', 'Type ID', 'Search phrase', 'Match basis', 'Latitude', 'Longitude', 'Entry in doc'],
+  caseHiddenColumns: ['ID', 'Case name', 'Story', 'Type ID', 'Search phrase', 'Match basis', 'Latitude', 'Longitude'],
 
   // Images live in /images, named after the type ID, e.g. images/T014.jpg
   images: {
