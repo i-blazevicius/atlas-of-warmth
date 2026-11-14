@@ -229,7 +229,8 @@
         "core": "#4a4a4a",
         "fringe": "#4a4a4a",
         "coreLine": "#cdcdcd",
-        "countryOutline": "#ac2b4f"
+        "countryOutline": "#ac2b4f",
+        "graticule": "#2a2622"
       }
     },
     {
