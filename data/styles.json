@@ -115,7 +115,7 @@
     {
       "name": "Serif, pink",
       "css": {
-        "--accent": "#f52261",
+        "--accent": "#eb2c65",
         "--ink": "#f4e9dc",
         "--ink-dim": "#a39888",
         "--ink-faint": "#6b6157",
@@ -143,10 +143,10 @@
         "ocean": "#171513",
         "land": "#24211d",
         "border": "#6b6157",
-        "core": "#8a8177",
+        "core": "#524943",
         "fringe": "#a39888",
         "coreLine": "#d8cfc3",
-        "countryOutline": "#a39888"
+        "countryOutline": "#ac2b4f"
       }
     }
   ]
