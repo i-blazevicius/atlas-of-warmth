@@ -11,6 +11,8 @@
   --ink-faint: #6b6157;         /* IDs, coordinates */
   --accent: #f52261;            /* interface accents (map value: theme.activeDot in config.js) */
   --node: #f4e9dc;              /* map dots and clusters: off-white reads on every climate palette */
+  --dot-line: #0d0c0b;          /* outline of dots and clusters */
+  --image-bg: #1d1a17;          /* image frame (seen when a type has no image yet) */
   --area: #8a8177;              /* legend swatches; set from the map colours of the style version */
   --hatch: #a39888;
   --panel-bg: rgba(20, 18, 16, 0.92);
@@ -147,8 +149,8 @@ button { font: inherit; color: inherit; }
   --size: 30px;
   width: var(--size); height: var(--size); border-radius: 50%;
   display: grid; place-items: center; cursor: pointer;
-  background: var(--node); color: var(--space);
-  border: 1.5px solid var(--space);
+  background: var(--node); color: var(--dot-line);
+  border: 1.5px solid var(--dot-line);
   font-family: var(--font-ui); font-style: normal; font-size: 10px; font-weight: 500;
 }
 /* No transform/transition on .cluster itself: the map moves markers with transform, and a transition makes them lag. */
@@ -157,7 +159,7 @@ button { font: inherit; color: inherit; }
    All its dots are filled in the accent colour; the one whose name is shown also gets a ring. */
 .dot-selected {
   width: 13px; height: 13px; padding: 0; border-radius: 50%; cursor: pointer;
-  background: var(--accent); border: 1.5px solid var(--space);
+  background: var(--accent); border: 1.5px solid var(--dot-line);
   z-index: 3;   /* above the cluster bubbles */
 }
 .dot-selected.active {
@@ -193,7 +195,7 @@ button { font: inherit; color: inherit; }
 }
 .close:hover { color: var(--ink); }
 
-.type-image { margin: -20px -22px 18px; background: #1d1a17; overflow: hidden; }
+.type-image { margin: -20px -22px 18px; background: var(--image-bg); overflow: hidden; }
 /* The frame takes the image's own proportions; very tall images are capped */
 .type-image img { width: 100%; height: auto; max-height: 70vh; object-fit: contain; display: block; filter: var(--image-filter); }
 .type-image { position: relative; }

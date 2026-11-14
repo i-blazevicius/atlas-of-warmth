@@ -88,8 +88,7 @@ const styleLib = await Styles.loadLibrary(CONFIG);
 const startStyle = Styles.startingStyle(styleLib.lib, CONFIG);
 if (startStyle) {
   Styles.applyCss(startStyle, styleLib.lib.fonts);
-  Object.assign(T, startStyle.map ?? {});
-  if (startStyle.css?.['--space']) T.space = startStyle.css['--space'];
+  for (const [k, v] of Object.entries(Styles.mapColours(startStyle))) if (v) T[k] = v;
   if (T.core) document.documentElement.style.setProperty('--area', T.core);
   if (T.fringe) document.documentElement.style.setProperty('--hatch', T.fringe);
 }
@@ -540,6 +539,9 @@ function setMapColours(c) {
   map.setPaintProperty('land', 'fill-color', T.land);
   map.setPaintProperty('borders', 'line-color', T.border);
   for (const id of ['core-line', 'fringe-line']) map.setPaintProperty(id, 'line-color', T.coreLine);
+  map.setPaintProperty('graticule', 'line-color', T.graticule);
+  map.setPaintProperty('points', 'circle-color', T.point);
+  map.setPaintProperty('points', 'circle-stroke-color', T.pointStroke);
   map.setPaintProperty('country-selected', 'line-color', T.countryOutline);
   for (const id of ['core', 'region-core']) map.setPaintProperty(id, 'fill-color', T.core);
   map.updateImage('hatch', hatchImage(T.fringe, T.fringeOpacity));

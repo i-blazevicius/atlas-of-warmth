@@ -110,6 +110,10 @@ const COLOURS = [
   { label: 'Panels', key: '--panel-bg' },
   { label: 'Panel lines', key: '--panel-line' },
   { label: 'Background', key: '--space' },
+  { label: 'Image frame (no image)', key: '--image-bg' },
+  { label: 'Dots and clusters', key: '--node' },
+  { label: 'Dot outlines', key: '--dot-line' },
+  { label: 'Graticule', key: 'graticule', map: true },
   { label: 'Sea', key: 'ocean', map: true },
   { label: 'Land', key: 'land', map: true },
   { label: 'Borders', key: 'border', map: true },
@@ -123,7 +127,14 @@ const NATIVE_TAIL = {
   other: "'Noto Sans SC', 'Noto Sans JP', 'Noto Sans KR', 'Noto Sans Armenian', 'Noto Sans Georgian', 'Noto Sans Gurmukhi', 'Noto Sans Devanagari', 'Noto Sans Arabic', 'Noto Sans Canadian Aboriginal', sans-serif",
 };
 
+// Map colours of a version, including the dot colours that also live in the page's CSS.
+export function mapColours(style) {
+  const css = style?.css ?? {};
+  return { ...(style?.map ?? {}), space: css['--space'], point: css['--node'], pointStroke: css['--dot-line'] };
+}
+
 export function initPanel({ CONFIG, lib, sha, current, setMapColours }) {
+  const mapDefaults = { ...CONFIG.theme };
   const P = {
     lib, sha, token: getToken(),
     viewing: null,            // name of the saved version on screen, or '__draft'
@@ -158,12 +169,12 @@ export function initPanel({ CONFIG, lib, sha, current, setMapColours }) {
 
   function show(style) {
     applyCss(style, P.lib.fonts);
-    setMapColours({ ...(style.map ?? {}), space: style.css?.['--space'] });
+    setMapColours(mapColours(style));
   }
 
   // ── Rendering ──
   function render() {
-    const open = readLocal().panelOpen !== false;
+    const open = readLocal().panelOpen === true; // starts folded
     const s = shown();
     const fontOptions = (value) => {
       const cur = primaryFamily(value);
@@ -206,7 +217,7 @@ export function initPanel({ CONFIG, lib, sha, current, setMapColours }) {
         <label class="sp-colour sp-accent"><span class="control-label">Accent</span><input type="color" data-sp-colour="--accent" value="${esc(accent)}"><code>${esc(accent)}</code></label>
         <details class="sp-more"><summary class="control-label">More colours</summary>
           ${COLOURS.map((c) => {
-            const v = (c.map ? s.map?.[c.key] : s.css?.[c.key]) ?? '#000000';
+            const v = (c.map ? s.map?.[c.key] : s.css?.[c.key]) ?? (c.map ? null : cssVar(c.key)) ?? mapDefaults[c.key] ?? '#000000';
             return `<label class="sp-colour"><span>${c.label}</span><input type="color" data-sp-colour="${c.key}" ${c.map ? 'data-sp-map' : ''} value="${esc(v)}"></label>`;
           }).join('')}
         </details>
