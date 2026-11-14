@@ -246,6 +246,8 @@ button { font: inherit; color: inherit; }
 
 .story-title { font-family: var(--font-display); font-style: var(--style-display); font-weight: var(--weight-display); font-size: 26px; line-height: 1.05; margin: 0 0 14px; }
 .story-text { font-size: var(--body-size); line-height: 1.5; white-space: pre-wrap; }
+.story-where { margin-bottom: 16px; }
+.story-where dt:first-child { margin-top: 0; }
 
 /* ── Floating cards (config.js → cards: 'float') ───────────
    They reuse the panel's inner styles; only the frame and a few sizes differ. */

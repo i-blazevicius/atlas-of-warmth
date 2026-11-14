@@ -62,10 +62,16 @@ export default {
   caseColumns: {
     id: 'ID',
     title: 'Case name',
-    story: 'Story',          // a column with the story text; shown first, in full, if it exists
+    story: 'Story',          // a column with the story text; shown in full, under place and period
+    place: 'Place',          // place and period are shown together under the title: "Place · Period"
+    period: 'Period',
+    author: 'Author',        // shown under the story, only when filled in
+    lat: 'Latitude',         // shown with the ID at the bottom, as on the type cards
+    lon: 'Longitude',
   },
   // Case columns never shown in the story panel (the rest are listed under the story).
-  caseHiddenColumns: ['ID', 'Case name', 'Story', 'Type ID', 'Search phrase', 'Match basis', 'Latitude', 'Longitude'],
+  caseHiddenColumns: ['ID', 'Case name', 'Story', 'Type ID', 'Search phrase', 'Match basis', 'Latitude', 'Longitude',
+    'Place', 'Period', 'Author', 'Main terms', 'Primary uses', 'Secondary uses', 'Tags', 'Source kinds'],
 
   // Images live in /images, named after the type ID, e.g. images/T014.jpg
   images: {

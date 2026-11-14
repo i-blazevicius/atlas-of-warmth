@@ -99,7 +99,7 @@ const $ = (id) => document.getElementById(id);
 // Data, parsing and the type card are shared with the print page: js/core.js.
 const core = createCore(CONFIG, V);
 const {
-  state, esc, splitList, resolveColumns, loadCSV, parseTypes, parseNames, pointInRing, pointInCountry, nameDot, nameIn, nameIndexFor, displayName, parseCases, computeCountryBoxes, union, inferredGaps, isRegion, countriesOf, regionsOf, expandIso, regionCountry, loadRegionFile, regionFeatures, featureBox, fitCountries, boxesFor, boundsFor, visibleTypes, rawDots, DOT_GAP, dotPositions, computeDotPositions, isStandout, gapsFor, addCredit, emptySlot, loadImage, loadData,
+  state, esc, splitList, resolveColumns, loadCSV, parseTypes, parseNames, pointInRing, pointInCountry, nameDot, nameIn, nameIndexFor, displayName, parseCases, computeCountryBoxes, union, inferredGaps, isRegion, countriesOf, regionsOf, expandIso, regionCountry, loadRegionFile, regionFeatures, featureBox, fitCountries, boxesFor, boundsFor, visibleTypes, rawDots, DOT_GAP, dotPositions, computeDotPositions, isStandout, latLon, gapsFor, addCredit, emptySlot, loadImage, loadData,
 } = core;
 
 function showMessage(text, persist = false) {
@@ -669,16 +669,21 @@ function openStory(cid) {
   if (!row) return;
   const cols = state.caseCols;
   const hidden = new Set(CONFIG.caseHiddenColumns.map((h) => h.toLowerCase()));
-  const story = cols.story ? String(row[cols.story] ?? '').trim() : '';
+  const val = (k) => (cols[k] ? String(row[cols[k]] ?? '').trim() : '');
+  const story = val('story');
+  const placePeriod = [val('place'), val('period')].filter(Boolean).join(' · ');
+  const author = val('author');
+  const lat = parseFloat(val('lat')), lon = parseFloat(val('lon'));
+  // Other columns not hidden in config (none at the moment) are listed after the author.
   const fields = state.caseHeaders
     .filter((h) => !hidden.has(h.trim().toLowerCase()) && String(row[h] ?? '').trim())
     .map((h) => `<dt>${esc(h)}</dt><dd>${esc(row[h])}</dd>`).join('');
   $('story-body').innerHTML = `
-    <h1 class="story-title">${esc((cols.title && row[cols.title]) || cid)}</h1>
-    ${story ? `<div class="story-text">${esc(story)}</div>` : ''}
-    ${fields ? `<dl class="fields">${fields}</dl>` : ''}
-    ${!story && !fields ? '<p class="meta">No story text yet.</p>' : ''}
-    <p class="meta">${esc(cid)}</p>`;
+    <h1 class="story-title">${esc(val('title') || cid)}</h1>
+    ${placePeriod ? `<dl class="fields story-where"><dt>Place and period</dt><dd>${esc(placePeriod)}</dd></dl>` : ''}
+    ${story ? `<div class="story-text">${esc(story)}</div>` : '<p class="meta">No story text yet.</p>'}
+    ${author || fields ? `<dl class="fields">${author ? `<dt>Author</dt><dd>${esc(author)}</dd>` : ''}${fields}</dl>` : ''}
+    <p class="meta">${esc(cid)}${Number.isFinite(lat) && Number.isFinite(lon) ? ` · ${latLon(lat, lon)}` : ''}</p>`;
   $('story').hidden = false;
   $('story-body').scrollTop = 0;
 }
@@ -832,4 +837,4 @@ async function start() {
 }
 start();
 
-window.atlas = { map, state, select, selectedCollection };
+window.atlas = { map, state, select, selectedCollection, openStory };

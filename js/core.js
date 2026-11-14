@@ -138,6 +138,11 @@ export function createCore(CONFIG, V) {
       : { name: t.translit || t.name, native: t.native, language: '' };
   }
 
+  // "55.5° N, 23.3° E"
+  function latLon(lat, lon) {
+    return `${Math.abs(lat)}° ${lat < 0 ? 'S' : 'N'}, ${Math.abs(lon)}° ${lon < 0 ? 'W' : 'E'}`;
+  }
+
   function parseCases({ rows, headers }) {
     const c = resolveColumns(headers, CONFIG.caseColumns);
     const map = new Map();
@@ -337,7 +342,7 @@ export function createCore(CONFIG, V) {
         ${t.period ? `<dt>Period of use</dt><dd>${esc(t.period)}</dd>` : ''}
       </dl>
       ${t.cases.length ? `<section class="stories"><h2>Stories</h2><ul>${caseItems}</ul></section>` : ''}
-      <p class="meta">${esc(t.id)} · ${Math.abs(t.lat)}° ${t.lat < 0 ? 'S' : 'N'}, ${Math.abs(t.lon)}° ${t.lon < 0 ? 'W' : 'E'}</p>`;
+      <p class="meta">${esc(t.id)} · ${latLon(t.lat, t.lon)}</p>`;
     if (keep) body.querySelector('.type-image').replaceWith(keep);
     else loadImage(t.id, body.querySelector('.type-image'));
   }
@@ -422,6 +427,6 @@ export function createCore(CONFIG, V) {
   }
 
   return {
-    state, esc, splitList, resolveColumns, loadCSV, parseTypes, parseNames, pointInRing, pointInCountry, nameDot, nameIn, nameIndexFor, displayName, parseCases, computeCountryBoxes, union, inferredGaps, isRegion, countriesOf, regionsOf, expandIso, regionCountry, loadRegionFile, regionFeatures, featureBox, fitCountries, boxesFor, boundsFor, visibleTypes, rawDots, DOT_GAP, dotPositions, computeDotPositions, isStandout, gapsFor, renderType, addCredit, emptySlot, loadImage, loadData,
+    state, esc, splitList, resolveColumns, loadCSV, parseTypes, parseNames, pointInRing, pointInCountry, nameDot, nameIn, nameIndexFor, displayName, parseCases, computeCountryBoxes, union, inferredGaps, isRegion, countriesOf, regionsOf, expandIso, regionCountry, loadRegionFile, regionFeatures, featureBox, fitCountries, boxesFor, boundsFor, visibleTypes, rawDots, DOT_GAP, dotPositions, computeDotPositions, isStandout, latLon, gapsFor, renderType, addCredit, emptySlot, loadImage, loadData,
   };
 }
