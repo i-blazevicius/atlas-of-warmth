@@ -90,6 +90,9 @@ export function applyCss(style, fonts = []) {
   }
 }
 
+// Starting value of a CSS variable (from css/style.css), for settings a saved version does not have yet.
+const cssVar = (k) => getComputedStyle(document.documentElement).getPropertyValue(k).trim() || null;
+
 // ── The panel ──────────────────────────────────────────────
 // Font roles shown in the panel: CSS variable for the font, plus optional weight and size variables.
 const ROLES = [
@@ -98,7 +101,7 @@ const ROLES = [
   { label: 'Text', font: '--font-body', weight: '--weight-body', size: '--body-size', italic: '--style-body' },
   { label: 'Labels', font: '--font-label', weight: '--label-weight', size: '--label-size', italic: '--style-label', caps: true },
   { label: 'Buttons', font: '--font-ui' },
-  { label: 'Native names', font: '--font-native' },
+  { label: 'Native names', font: '--font-native', weight: '--weight-native', size: '--native-size', italic: '--style-native' },
 ];
 const COLOURS = [
   { label: 'Text', key: '--ink' },
@@ -212,8 +215,8 @@ export function initPanel({ CONFIG, lib, sha, current, setMapColours }) {
         ${ROLES.map((r) => `<div class="sp-role">
           <span>${r.label}</span>
           <select data-sp-font="${r.font}">${fontOptions(s.css?.[r.font])}</select>
-          ${r.weight ? `<input type="number" min="100" max="900" step="100" title="Weight" data-sp-num="${r.weight}" value="${parseInt(s.css?.[r.weight] ?? 400)}">` : ''}
-          ${r.size ? `<input type="number" min="6" max="80" step="0.5" title="Size (px)" data-sp-num="${r.size}" data-unit="px" value="${parseFloat(s.css?.[r.size] ?? 14)}">` : ''}
+          ${r.weight ? `<input type="number" min="100" max="900" step="100" title="Weight" data-sp-num="${r.weight}" value="${parseInt(s.css?.[r.weight] ?? cssVar(r.weight) ?? 400)}">` : ''}
+          ${r.size ? `<input type="number" min="6" max="80" step="0.5" title="Size (px)" data-sp-num="${r.size}" data-unit="px" value="${parseFloat(s.css?.[r.size] ?? cssVar(r.size) ?? 14)}">` : ''}
           ${r.italic ? (() => {
             const f = P.lib.fonts.find((x) => x.family === primaryFamily(s.css?.[r.font]));
             const ok = !f?.google || /ital/.test(f.google); // Google fonts loaded without italics would only be slanted

@@ -33,6 +33,9 @@
   --style-display: normal;
   --style-body: normal;
   --style-label: normal;
+  --style-native: normal;     /* the native-script line under a type's name */
+  --weight-native: 400;
+  --native-size: 20px;
   --title-size: 26px;         /* the 'Atlas of Warmth' title */
   --name-size: 30px;          /* type names on the cards */
   --body-size: 14px;          /* running text in the panels */
@@ -207,7 +210,7 @@ button { font: inherit; color: inherit; }
 
 .family { font-family: var(--font-label); font-style: var(--style-label); font-size: var(--label-size); text-transform: var(--label-case); letter-spacing: var(--label-tracking); font-weight: var(--label-weight); color: var(--accent); margin: 0 0 8px; }
 .translit { font-family: var(--font-display); font-style: var(--style-display); font-weight: var(--weight-display); font-size: var(--name-size); line-height: 1.1; letter-spacing: -0.01em; margin: 0; }
-.native { font-family: var(--font-native); font-size: 20px; color: var(--ink-dim); margin: 4px 0 0; line-height: 1.2; }
+.native { font-family: var(--font-native); font-style: var(--style-native); font-weight: var(--weight-native); font-size: var(--native-size); color: var(--ink-dim); margin: 4px 0 0; line-height: 1.2; }
 .language { font-family: var(--font-ui); font-style: normal; font-size: 11px; color: var(--ink-faint); margin: 6px 0 0; }
 .also-known { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 12px 0 0; }
 .also-known button {
@@ -257,7 +260,7 @@ button { font: inherit; color: inherit; }
 .card .type-image.empty { aspect-ratio: auto; height: 34px; font-size: 10px; }
 .card .translit { font-size: calc(var(--name-size) * 0.7); padding-right: 22px; }
 .card .family { padding-right: 22px; }
-.card .native { font-size: 16px; }
+.card .native { font-size: calc(var(--native-size) * 0.8); }
 .card .type-name, .card .fields dd, .card .stories button { font-size: 13px; }
 .card .also-known button { font-size: 12px; }
 .card .meta { margin-top: 14px; }
