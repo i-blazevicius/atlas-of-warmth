@@ -181,7 +181,8 @@
         "--label-tracking": "0.1em",
         "--style-native": "italic",
         "--style-body": "normal",
-        "--style-display": "italic"
+        "--style-display": "italic",
+        "--image-bg": "#131617"
       },
       "map": {
         "ocean": "#131617",
