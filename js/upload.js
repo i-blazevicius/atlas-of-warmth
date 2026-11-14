@@ -139,7 +139,14 @@ async function updateImageIndex(id, entry) {
 const creditText = (c) => (!c ? '' : c.text ?? [c.author, c.licence].filter(Boolean).join(' · '));
 
 // ── Wikimedia Commons ──────────────────────────────────────
-const stripHtml = (html) => new DOMParser().parseFromString(String(html ?? ''), 'text/html').body.textContent.trim().replace(/\s+/g, ' ');
+// Commons credits are HTML; some templates repeat their text in hidden parts ("Unknown authorUnknown author").
+function stripHtml(html) {
+  const body = new DOMParser().parseFromString(String(html ?? ''), 'text/html').body;
+  body.querySelectorAll('[style*="display:none"], [style*="display: none"], .fn-hidden, .mw-hidden').forEach((x) => x.remove());
+  const text = body.textContent.trim().replace(/\s+/g, ' ');
+  const half = text.length / 2;
+  return Number.isInteger(half) && text.slice(0, half) === text.slice(half) ? text.slice(0, half) : text;
+}
 async function commonsQuery(params) {
   const url = new URL('https://commons.wikimedia.org/w/api.php');
   Object.entries({ action: 'query', format: 'json', origin: '*', prop: 'imageinfo',
