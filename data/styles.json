@@ -144,7 +144,7 @@
         "land": "#24211d",
         "border": "#6b6157",
         "core": "#524943",
-        "fringe": "#a39888",
+        "fringe": "#524943",
         "coreLine": "#d8cfc3",
         "countryOutline": "#ac2b4f"
       }
