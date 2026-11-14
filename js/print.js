@@ -170,20 +170,31 @@ async function buildCard(t) {
   const info = state.imageIndex?.[t.id];
   if (fig && info && info.h > info.w) fig.classList.add('pc-tall');
 
-  const row = document.createElement('div');
-  row.className = 'pc-row';
-  const names = document.createElement('div');
-  names.className = 'pc-names';
-  for (const sel of ['.native', '.language']) { const x = body.querySelector(sel); if (x) names.append(x); }
+  // Name with its native script on the same line (wrapping below when it does not fit).
+  const head = document.createElement('div');
+  head.className = 'pc-title';
+  const translit = body.querySelector('.translit');
+  translit.replaceWith(head);
+  head.append(translit);
+  const native = body.querySelector('.native');
+  if (native) head.append(native);
+  body.querySelector('.language')?.remove();
   body.querySelector('.also-known')?.remove();
+  let after = head;
   const title = t.translit || t.name;
   const others = t.names.filter((n) => n.name !== title);
   if (others.length) {
     const p = document.createElement('p');
     p.className = 'pc-also';
     p.innerHTML = others.map((n) => `<span>${esc(n.name)}${n.native && n.native !== n.name ? ` <i>${esc(n.native)}</i>` : ''} <small>${esc(n.where.join(' '))}</small></span>`).join('');
-    names.append(p);
+    head.after(p);
+    after = p;
   }
+  // Map on the left, the type's description beside it.
+  const row = document.createElement('div');
+  row.className = 'pc-row';
+  const names = document.createElement('div');
+  names.className = 'pc-names';
   const typeName = body.querySelector('.type-name');
   if (typeName) names.append(typeName);
   if (P.locator) {
@@ -193,7 +204,7 @@ async function buildCard(t) {
     row.append(left);
   }
   row.append(names);
-  body.querySelector('.translit').after(row);
+  after.after(row);
   // Stories as plain text (no buttons on paper).
   body.querySelectorAll('.stories button').forEach((b) => { const s = document.createElement('span'); s.textContent = b.textContent; b.replaceWith(s); });
   return el;
@@ -203,9 +214,11 @@ async function buildCard(t) {
 // the names would make a long list.
 const countryName = new Map(countries.features.map((f) => [f.properties.iso, f.properties.name]));
 function widelyUsed(t) {
-  const isos = [...new Set([...expandIso(countriesOf(t.core)), ...regionsOf(t.core).map(core.regionCountry).filter(Boolean)])];
+  const whole = expandIso(countriesOf(t.core));
+  const isos = [...new Set([...whole, ...regionsOf(t.core).map(core.regionCountry).filter(Boolean)])];
   if (!isos.length) return '';
-  const names = isos.map((iso) => countryName.get(iso) ?? iso);
+  // Countries listed only by some of their regions read "parts of …" (codes stay as they are).
+  const names = isos.map((iso) => `${whole.includes(iso) ? '' : 'parts of '}${countryName.get(iso) ?? iso}`);
   const long = isos.length > 4 || names.join(', ').length > 48;
   return `<p class="pc-countries">${esc((long ? isos : names).join(', '))}</p>`;
 }

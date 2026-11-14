@@ -286,9 +286,9 @@
       "name": "Print, white",
       "css": {
         "--accent": "#eb2c65",
-        "--ink": "#303030",
-        "--ink-dim": "#6b6b6b",
-        "--ink-faint": "#a3a3a3",
+        "--ink": "#000000",
+        "--ink-dim": "#494949",
+        "--ink-faint": "#8e8e8e",
         "--panel-bg": "#ffffff",
         "--panel-line": "#cfcfcf",
         "--space": "#ffffff",

@@ -38,16 +38,17 @@
 .pcard .type-image figcaption { position: static; background: none; padding: 4px 22px 0; color: var(--ink-faint); }
 .pcard .type-image.empty { aspect-ratio: 16 / 7; }
 
-.pc-row { display: flex; gap: 14px; align-items: flex-start; margin-top: 8px; }
+.pc-title { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; }
+.pc-title .native { margin: 0; }
+.pc-row { display: flex; gap: 14px; align-items: flex-start; margin-top: 12px; }
 .pc-names { flex: 1; min-width: 0; }
-.pc-names .native { margin-top: 0; }
-.pc-names .type-name { margin: 8px 0 0; }
+.pc-names .type-name { margin: 0; }
 .pc-map { flex: none; width: 42%; }
 .pc-locator { width: 100%; height: auto; display: block; border: 1px solid var(--panel-line); }
 .pc-countries { margin: 4px 0 0; font-family: var(--font-ui); font-style: normal; font-size: 9px; line-height: 1.35; color: var(--ink-faint); }
 .pcard .family { color: var(--ink-dim); }
 .pc-dots { fill: var(--accent); stroke: var(--dot-line); }
-.pc-also { margin: 8px 0 0; font-size: 12px; line-height: 1.35; color: var(--ink-dim); }
+.pc-also { margin: 6px 0 0; font-size: 12px; line-height: 1.35; color: var(--ink-dim); }
 .pc-also span { display: inline; }
 .pc-also span + span::before { content: ' · '; color: var(--ink-faint); }
 .pc-also i { font-family: var(--font-native); }
