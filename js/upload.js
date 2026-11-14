@@ -631,7 +631,7 @@ list.addEventListener('click', (e) => {
   if (btn?.classList.contains('up-remove')) { removeImage(id, btn); return; }
   if (btn?.classList.contains('up-find')) { openPicker(item); return; }
   if (btn?.classList.contains('pk-go')) { runSearch(item.querySelector('.up-picker'), [item.querySelector('.pk-q').value.trim()]); return; }
-  if (btn?.classList.contains('pk-chip')) { item.querySelector('.pk-q').value = btn.dataset.q; runSearch(item.querySelector('.up-picker'), [btn.dataset.q]); return; }
+  if (btn?.classList.contains('pk-chip') && !btn.dataset.cat) { item.querySelector('.pk-q').value = btn.dataset.q; runSearch(item.querySelector('.up-picker'), [btn.dataset.q]); return; }
   if (btn?.classList.contains('pk-result')) { pickResult(item, item.querySelector('.up-picker')._results[btn.dataset.i]); return; }
   if (btn?.classList.contains('pk-cat')) {
     const picker = item.querySelector('.up-picker');
