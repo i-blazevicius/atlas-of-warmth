@@ -133,11 +133,14 @@
         "--weight-body": "400",
         "--label-weight": "500",
         "--title-size": "35px",
-        "--name-size": "30px",
+        "--name-size": "33px",
         "--body-size": "14px",
         "--label-size": "11px",
         "--label-case": "uppercase",
-        "--label-tracking": "0.1em"
+        "--label-tracking": "0.1em",
+        "--style-native": "italic",
+        "--style-body": "normal",
+        "--style-display": "italic"
       },
       "map": {
         "ocean": "#171513",
