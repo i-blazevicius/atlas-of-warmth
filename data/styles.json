@@ -191,6 +191,46 @@
         "coreLine": "#c2d0d8",
         "countryOutline": "#ac2b4f"
       }
+    },
+    {
+      "name": "Sad Earth",
+      "css": {
+        "--accent": "#eb2c65",
+        "--ink": "#e7e7e7",
+        "--ink-dim": "#959595",
+        "--ink-faint": "#606060",
+        "--panel-bg": "#121212",
+        "--panel-line": "#343434",
+        "--space": "#0b0b0b",
+        "--font-title": "'Doto', sans-serif",
+        "--font-display": "'Source Serif 4', serif",
+        "--font-body": "'Source Serif 4', serif",
+        "--font-label": "'IBM Plex Mono', monospace",
+        "--font-ui": "'IBM Plex Mono', monospace",
+        "--font-native": "'Noto Serif', 'Noto Serif SC', 'Noto Serif JP', 'Noto Serif KR', 'Noto Serif Armenian', 'Noto Serif Georgian', 'Noto Serif Gurmukhi', 'Noto Serif Devanagari', 'Noto Naskh Arabic', 'Noto Sans Canadian Aboriginal', serif",
+        "--weight-title": "500",
+        "--weight-display": "300",
+        "--weight-body": "400",
+        "--label-weight": "500",
+        "--title-size": "35px",
+        "--name-size": "33px",
+        "--body-size": "14px",
+        "--label-size": "11px",
+        "--label-case": "uppercase",
+        "--label-tracking": "0.1em",
+        "--style-native": "italic",
+        "--style-body": "normal",
+        "--style-display": "italic"
+      },
+      "map": {
+        "ocean": "#151515",
+        "land": "#202020",
+        "border": "#606060",
+        "core": "#4a4a4a",
+        "fringe": "#4a4a4a",
+        "coreLine": "#cdcdcd",
+        "countryOutline": "#ac2b4f"
+      }
     }
   ]
 }
