@@ -221,7 +221,8 @@
         "--style-native": "italic",
         "--style-body": "normal",
         "--style-display": "italic",
-        "--node": "#fbf9f4"
+        "--node": "#fbf9f4",
+        "--image-bg": "#1b1b1b"
       },
       "map": {
         "ocean": "#151515",
