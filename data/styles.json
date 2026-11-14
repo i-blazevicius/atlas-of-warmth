@@ -260,16 +260,19 @@
         "--label-tracking": "0.1em",
         "--style-native": "italic",
         "--style-body": "normal",
-        "--style-display": "italic"
+        "--style-display": "italic",
+        "--node": "#ffffff",
+        "--dot-line": "#373737"
       },
       "map": {
-        "ocean": "#f8f9f7",
-        "land": "#ffffff",
-        "border": "#838383",
+        "ocean": "#f5f5f5",
+        "land": "#fdfdfd",
+        "border": "#757575",
         "core": "#939393",
         "fringe": "#929292",
         "coreLine": "#828282",
-        "countryOutline": "#ac2b4f"
+        "countryOutline": "#ac2b4f",
+        "graticule": "#bdc5b8"
       }
     }
   ]
