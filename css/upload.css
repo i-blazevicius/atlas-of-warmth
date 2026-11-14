@@ -88,3 +88,6 @@ code { font-family: var(--font-ui); font-size: 0.85em; color: var(--accent); }
   background: #1a1815; border: 1px solid var(--panel-line); color: var(--ink);
   padding: 7px 9px; font-family: var(--font-ui); font-size: 12px; border-radius: var(--radius);
 }
+
+.pk-local { margin-top: -4px; align-items: center; }
+.pk-local .pk-note { margin: 0 4px 0 0; }

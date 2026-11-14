@@ -289,6 +289,18 @@ async function loadTypes() {
     .map((r) => ({ id: v(r, 'id'), family: v(r, 'family'), name: v(r, 'name'), translit: v(r, 'translit'), native: v(r, 'native'), search: v(r, 'search'),
       stories: (v(r, 'cases').match(new RegExp(CONFIG.caseIdPattern, 'g')) ?? []).length }))
     .filter((t) => t.id);
+  // Local names from the Names tab: extra search words (another language may find what one does not).
+  if (!CONFIG.data.names) return;
+  try {
+    const names = Papa.parse(await (await fetch(CONFIG.data.names, { cache: 'no-store' })).text(), { header: true, skipEmptyLines: 'greedy' });
+    const n = Object.fromEntries(['type', 'name', 'native', 'language'].map((k) => [k, findCol(names.meta.fields, CONFIG.nameColumns[k])]));
+    const g = (r, k) => (n[k] ? String(r[n[k]] ?? '').trim() : '');
+    const byId = new Map(state.types.map((t) => [t.id, t]));
+    for (const r of names.data) {
+      const t = byId.get(g(r, 'type'));
+      if (t && g(r, 'name')) (t.names ??= []).push({ name: g(r, 'name'), native: g(r, 'native'), language: g(r, 'language') });
+    }
+  } catch (err) { console.warn('Names not loaded:', err); }
 }
 
 function render() {
@@ -361,17 +373,26 @@ async function removeImage(id, button) {
 }
 
 // ── Picker ─────────────────────────────────────────────────
+// Fold every open search except the one in this row, to keep the list short.
+function foldOthers(item) {
+  document.querySelectorAll('.up-picker:not([hidden])').forEach((p) => { if (p.closest('.up-item') !== item) p.hidden = true; });
+}
 function openPicker(item) {
   const picker = item.querySelector('.up-picker');
   if (!picker.hidden) { picker.hidden = true; return; }
+  foldOthers(item);
   const t = state.types.find((x) => x.id === item.dataset.id);
+  const local = (t.names ?? []).flatMap((n) => [n.name, n.native]);
   const queries = [...new Set([cleanQuery(t.search), t.translit, t.native, cleanQuery(t.name)].filter(Boolean))];
+  const extra = [...new Set(local.filter((q) => q && !queries.includes(q)))];
   picker.innerHTML = `
     <div class="pk-search">
       <input type="search" class="pk-q" value="${esc(queries[0] ?? '')}">
       <button type="button" class="pk-go">search</button>
       ${queries.slice(1).map((q) => `<button type="button" class="pk-chip" data-q="${esc(q)}">${esc(q)}</button>`).join('')}
     </div>
+    ${extra.length ? `<div class="pk-search pk-local"><span class="pk-note">Other names:</span>
+      ${extra.map((q) => `<button type="button" class="pk-chip" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>` : ''}
     <div class="pk-results"></div>
     <div class="pk-manual">
       <label>Credit for an image you add by hand (drop it on this row or click the thumbnail)
@@ -425,6 +446,7 @@ list.addEventListener('click', (e) => {
   if (!item) return;
   const id = item.dataset.id;
   const btn = e.target.closest('button');
+  if (!e.target.closest('.up-picker')) foldOthers(item); // working on another row folds the open searches
   if (btn?.classList.contains('up-remove')) { removeImage(id, btn); return; }
   if (btn?.classList.contains('up-find')) { openPicker(item); return; }
   if (btn?.classList.contains('pk-go')) { runSearch(item.querySelector('.up-picker'), [item.querySelector('.pk-q').value.trim()]); return; }
