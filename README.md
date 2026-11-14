@@ -35,7 +35,7 @@ published CSV, then reload the map. Nothing in this repository needs to change.
 
 ## Images
 
-Use the upload page: **https://i-blazevicius.github.io/atlas-of-warmth/upload.html**
+Use the upload page:
 
 - Drop an image on a type's row (or click the row to pick a file), or drop many files on the dashed box:
   each is matched by the type ID at the start of its file name (`T014 stove.png` → T014).
