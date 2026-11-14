@@ -264,7 +264,8 @@
         "--style-body": "normal",
         "--style-display": "italic",
         "--node": "#f2e6ea",
-        "--dot-line": "#373737"
+        "--dot-line": "#373737",
+        "--image-bg": "#d4d4d4"
       },
       "map": {
         "ocean": "#f5f5f5",
