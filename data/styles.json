@@ -220,7 +220,8 @@
         "--label-tracking": "0.1em",
         "--style-native": "italic",
         "--style-body": "normal",
-        "--style-display": "italic"
+        "--style-display": "italic",
+        "--node": "#fbf9f4"
       },
       "map": {
         "ocean": "#151515",
