@@ -17,12 +17,48 @@ const TOKEN_KEY = 'atlas-of-warmth-token';
 const EXTS = CONFIG.images.extensions;
 const folder = CONFIG.images.folder.replace(/\/$/, '');
 
-const state = { types: [], existing: new Map(), credits: {}, token: null, queue: Promise.resolve() };
+const state = { types: [], existing: new Map(), credits: {}, token: null, queue: Promise.resolve(), pending: 0, failed: [] };
 const CREDITS_PATH = CONFIG.data.credits;
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 function getToken() { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } }
 function setToken(t) { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch {} }
+
+// Everything is saved to GitHub as soon as it happens, one change at a time. This queue runs the
+// changes and keeps the line at the top up to date: saving / all saved / failed (with Retry).
+// A job returns false when it failed; retry() runs it again.
+function enqueue(job, retry, label) {
+  state.pending++; showSaved();
+  state.queue = state.queue.then(async () => {
+    let ok = false;
+    try { ok = (await job()) !== false; } catch (err) { console.error(err); }
+    state.pending--;
+    if (!ok && retry) state.failed.push({ retry, label });
+    showSaved();
+  });
+}
+function showSaved() {
+  const el = $('saved');
+  if (!el) return;
+  if (state.pending) { el.innerHTML = `saving… ${state.pending > 1 ? `(${state.pending} left)` : ''}`; el.className = 'up-saved busy'; return; }
+  if (state.failed.length) {
+    el.innerHTML = `${state.failed.length} not saved (${esc(state.failed.map((f) => f.label).join(', '))}) <button type="button" id="retry">Retry</button>`;
+    el.className = 'up-saved err';
+    return;
+  }
+  el.textContent = state.token ? 'all changes saved' : '';
+  el.className = 'up-saved ok';
+}
+document.addEventListener('click', (e) => {
+  if (e.target.id !== 'retry') return;
+  const jobs = state.failed.splice(0);
+  jobs.forEach((f) => f.retry());
+  showSaved();
+});
+// Leaving while something is still saving (or a credit is being edited) asks first.
+window.addEventListener('beforeunload', (e) => {
+  if (state.pending || document.querySelector('.up-credit-edit:not([hidden])')) { e.preventDefault(); e.returnValue = ''; }
+});
 
 function message(text) {
   const m = $('message'); m.textContent = text; m.hidden = !text;
@@ -70,6 +106,7 @@ async function connect(token) {
   }
 }
 function showConnected(on) {
+  setTimeout(showSaved);
   $('connect-off').hidden = on;
   $('connect-on').hidden = !on;
   $('repo-name').textContent = `${GH.owner}/${GH.repo}/${folder}`;
@@ -245,7 +282,7 @@ function handleFile(id, file, credit = null) {
   const setStatus = (text, cls = '') => { if (status) { status.textContent = text; status.className = `up-status ${cls}`; } };
   setStatus('queued…');
   // One at a time: GitHub rejects simultaneous commits to the same branch.
-  state.queue = state.queue.then(async () => {
+  enqueue(async () => {
     try {
       setStatus('shrinking…');
       const { blob, w, h } = await shrink(file);
@@ -262,7 +299,7 @@ function handleFile(id, file, credit = null) {
         const cl = row?.querySelector('.up-credit');
         if (cl) cl.textContent = creditText(credit);
         const actions = row?.querySelector('.up-actions');
-        if (actions && !actions.querySelector('.up-remove')) actions.innerHTML = '<button type="button" class="up-remove">remove</button>';
+        if (actions && !actions.querySelector('.up-remove')) actions.insertAdjacentHTML('beforeend', imageButtons());
       } else {
         download(blob, `${id}.jpg`);
         setStatus(`downloaded · ${kb} KB${credit ? ' · credit: ' + creditText(credit) : ''}`, 'ok');
@@ -271,8 +308,9 @@ function handleFile(id, file, credit = null) {
     } catch (err) {
       console.error(err);
       setStatus(`failed: ${err.message}`, 'err');
+      return false;
     }
-  });
+  }, () => handleFile(id, file, credit), id);
 }
 
 // ── List ───────────────────────────────────────────────────
@@ -320,13 +358,45 @@ function render() {
         <div class="up-status">${file ? esc(file.name) : ''}</div>
         <div class="up-actions">
           <button type="button" class="up-find">find on Commons</button>
-          ${file ? '<button type="button" class="up-remove">remove</button>' : ''}
+          ${file ? imageButtons() : ''}
         </div>
+      </div>
+      <div class="up-credit-edit" hidden>
+        <input type="text" class="up-credit-input" placeholder="e.g. Photo: J. Smith, Lithuanian Open-Air Museum, CC BY-SA 4.0">
+        <button type="button" class="up-credit-save">save credit</button>
+        <button type="button" class="up-credit-cancel">cancel</button>
       </div>
       <div class="up-picker" hidden></div>
       <input type="file" accept="image/*">
     </li>`;
   }).join('');
+}
+
+const imageButtons = () => '<button type="button" class="up-edit-credit">edit credit</button><button type="button" class="up-remove">remove</button>';
+
+// Credit editor under a row: plain text; a Commons credit keeps its link to the source page.
+function openCreditEditor(item) {
+  const box = item.querySelector('.up-credit-edit');
+  if (!box.hidden) { box.hidden = true; return; }
+  const input = box.querySelector('input');
+  input.value = creditText(state.credits[item.dataset.id]);
+  box.hidden = false;
+  input.focus();
+}
+function saveCredit(item, text) {
+  const id = item.dataset.id;
+  if (!state.token) { message('Connect a GitHub token first.'); return; }
+  const prev = state.credits[id];
+  if (text === creditText(prev)) return;
+  const credit = text ? { text, ...(prev?.source ? { source: prev.source } : {}) } : null;
+  enqueue(async () => {
+    try {
+      await updateCredits(id, credit);
+      item.querySelector('.up-credit').textContent = creditText(credit);
+      const typed = item.querySelector('.credit-input'); if (typed) typed.value = credit?.text ?? '';
+      message(text ? `Credit saved for ${id}.` : `Credit removed for ${id}.`);
+    } catch (err) { message(`Could not save credit: ${err.message}`); return false; }
+  }, () => saveCredit(item, text), `credit ${id}`);
 }
 
 function updateSummary() {
@@ -349,7 +419,7 @@ async function removeImage(id, button) {
   const row = button.closest('.up-item');
   const status = row.querySelector('.up-status');
   button.disabled = true;
-  state.queue = state.queue.then(async () => {
+  enqueue(async () => {
     try {
       status.textContent = 'removing…'; status.className = 'up-status';
       for (const f of state.existing.get(id) ?? []) {
@@ -364,13 +434,15 @@ async function removeImage(id, button) {
       row.querySelector('.up-thumb').textContent = 'drop image';
       const cl = row.querySelector('.up-credit'); if (cl) cl.textContent = '';
       status.textContent = 'removed'; status.className = 'up-status ok';
-      button.remove();
+      row.querySelectorAll('.up-remove, .up-edit-credit').forEach((b) => b.remove());
+      row.querySelector('.up-credit-edit')?.setAttribute('hidden', '');
       updateSummary();
     } catch (err) {
       status.textContent = `failed: ${err.message}`; status.className = 'up-status err';
       button.disabled = false;
+      return false;
     }
-  });
+  }, null, `removing ${id}`);
 }
 
 // ── Picker ─────────────────────────────────────────────────
@@ -453,21 +525,19 @@ list.addEventListener('click', (e) => {
   if (btn?.classList.contains('pk-go')) { runSearch(item.querySelector('.up-picker'), [item.querySelector('.pk-q').value.trim()]); return; }
   if (btn?.classList.contains('pk-chip')) { item.querySelector('.pk-q').value = btn.dataset.q; runSearch(item.querySelector('.up-picker'), [btn.dataset.q]); return; }
   if (btn?.classList.contains('pk-result')) { pickResult(item, item.querySelector('.up-picker')._results[btn.dataset.i]); return; }
-  if (btn?.classList.contains('pk-save-credit')) {
-    if (!state.token) { message('Connect a GitHub token first.'); return; }
-    const text = item.querySelector('.credit-input').value.trim();
-    state.queue = state.queue.then(async () => {
-      try {
-        await updateCredits(id, text ? { text } : null);
-        item.querySelector('.up-credit').textContent = text;
-        message(text ? `Credit saved for ${id}.` : `Credit removed for ${id}.`);
-      } catch (err) { message(`Could not save credit: ${err.message}`); }
-    });
+  if (btn?.classList.contains('pk-save-credit')) { saveCredit(item, item.querySelector('.credit-input').value.trim()); return; }
+  if (btn?.classList.contains('up-edit-credit')) { openCreditEditor(item); return; }
+  if (btn?.classList.contains('up-credit-cancel')) { item.querySelector('.up-credit-edit').hidden = true; return; }
+  if (btn?.classList.contains('up-credit-save')) {
+    saveCredit(item, item.querySelector('.up-credit-input').value.trim());
+    item.querySelector('.up-credit-edit').hidden = true;
     return;
   }
   if (e.target.closest('.up-thumb')) item.querySelector('input[type="file"]').click();
 });
 list.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.target.classList.contains('up-credit-input')) { e.target.closest('.up-item').querySelector('.up-credit-save').click(); return; }
+  if (e.key === 'Escape' && e.target.classList.contains('up-credit-input')) { e.target.closest('.up-item').querySelector('.up-credit-cancel').click(); return; }
   if (e.key === 'Enter' && e.target.classList.contains('pk-q')) {
     e.target.closest('.up-item').querySelector('.pk-go').click();
   }

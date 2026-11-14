@@ -46,11 +46,11 @@ code { font-family: var(--font-ui); font-size: 0.85em; color: var(--accent); }
 .up-status.err { color: #d67a6a; }
 .up-item input[type="file"] { display: none; }
 
-.up-remove {
+.up-remove, .up-edit-credit, .up-credit-edit button {
   background: none; border: 1px solid var(--panel-line); color: var(--ink-faint); cursor: pointer;
   font-family: var(--font-ui); font-size: 10.5px; padding: 4px 8px; border-radius: var(--radius); white-space: nowrap;
 }
-.up-remove:hover { color: var(--ink); border-color: var(--ink-faint); }
+.up-remove:hover, .up-edit-credit:hover, .up-credit-edit button:hover { color: var(--ink); border-color: var(--ink-faint); }
 .up-remove.armed { color: #d67a6a; border-color: #d67a6a; }
 
 .up-actions { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
@@ -84,10 +84,23 @@ code { font-family: var(--font-ui); font-size: 0.85em; color: var(--accent); }
 .pk-note { font-family: var(--font-ui); font-size: 11px; color: var(--ink-faint); margin: 4px 0; }
 .pk-manual { margin-top: 12px; display: flex; gap: 8px; align-items: end; }
 .pk-manual label { flex: 1; display: flex; flex-direction: column; gap: 5px; font-family: var(--font-ui); font-size: 10.5px; color: var(--ink-faint); }
-.pk-manual input {
+.pk-manual input, .up-credit-edit input {
   background: #1a1815; border: 1px solid var(--panel-line); color: var(--ink);
   padding: 7px 9px; font-family: var(--font-ui); font-size: 12px; border-radius: var(--radius);
 }
 
 .pk-local { margin-top: -4px; align-items: center; }
 .pk-local .pk-note { margin: 0 4px 0 0; }
+
+/* Saving status under the title */
+.up-saved { font-family: var(--font-ui); font-size: 11px; margin: 4px 0 0; color: var(--ink-faint); min-height: 1em; }
+.up-saved.busy { color: var(--ink-dim); }
+.up-saved.ok::before { content: '✓ '; }
+.up-saved.ok:empty::before { content: none; }
+.up-saved.err { color: var(--accent); }
+.up-saved button { font: inherit; margin-left: 6px; padding: 2px 8px; cursor: pointer; background: none; color: var(--ink); border: 1px solid var(--accent); border-radius: var(--radius); }
+
+/* Credit editor under a row */
+.up-credit-edit { display: flex; gap: 6px; padding: 0 0 10px; }
+.up-credit-edit[hidden] { display: none; }
+.up-credit-edit input { flex: 1; min-width: 0; }
