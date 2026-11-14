@@ -186,12 +186,28 @@ async function buildCard(t) {
   }
   const typeName = body.querySelector('.type-name');
   if (typeName) names.append(typeName);
+  if (P.locator) {
+    const left = document.createElement('div');
+    left.className = 'pc-map';
+    left.innerHTML = (await locator(t)) + widelyUsed(t);
+    row.append(left);
+  }
   row.append(names);
-  if (P.locator) row.insertAdjacentHTML('beforeend', await locator(t));
   body.querySelector('.translit').after(row);
   // Stories as plain text (no buttons on paper).
   body.querySelectorAll('.stories button').forEach((b) => { const s = document.createElement('span'); s.textContent = b.textContent; b.replaceWith(s); });
   return el;
+}
+
+// Countries with at least some 'widely used' shading, under the locator: full names, or codes when
+// the names would make a long list.
+const countryName = new Map(countries.features.map((f) => [f.properties.iso, f.properties.name]));
+function widelyUsed(t) {
+  const isos = [...new Set([...expandIso(countriesOf(t.core)), ...regionsOf(t.core).map(core.regionCountry).filter(Boolean)])];
+  if (!isos.length) return '';
+  const names = isos.map((iso) => countryName.get(iso) ?? iso);
+  const long = isos.length > 4 || names.join(', ').length > 48;
+  return `<p class="pc-countries">${esc((long ? isos : names).join(', '))}</p>`;
 }
 
 // ── Packing ────────────────────────────────────────────────

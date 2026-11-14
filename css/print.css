@@ -42,7 +42,10 @@
 .pc-names { flex: 1; min-width: 0; }
 .pc-names .native { margin-top: 0; }
 .pc-names .type-name { margin: 8px 0 0; }
-.pc-locator { flex: none; width: 42%; height: auto; display: block; border: 1px solid var(--panel-line); }
+.pc-map { flex: none; width: 42%; }
+.pc-locator { width: 100%; height: auto; display: block; border: 1px solid var(--panel-line); }
+.pc-countries { margin: 4px 0 0; font-family: var(--font-ui); font-style: normal; font-size: 9px; line-height: 1.35; color: var(--ink-faint); }
+.pcard .family { color: var(--ink-dim); }
 .pc-dots { fill: var(--accent); stroke: var(--dot-line); }
 .pc-also { margin: 8px 0 0; font-size: 12px; line-height: 1.35; color: var(--ink-dim); }
 .pc-also span { display: inline; }

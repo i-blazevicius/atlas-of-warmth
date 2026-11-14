@@ -316,11 +316,11 @@
         "--image-bg": "#eeeeee"
       },
       "map": {
-        "ocean": "#ffffff",
-        "land": "#ededed",
+        "ocean": "#ededed",
+        "land": "#ffffff",
         "border": "#9a9a9a",
-        "core": "#8f8f8f",
-        "fringe": "#8f8f8f",
+        "core": "#a9a9a9",
+        "fringe": "#a9a9a9",
         "coreLine": "#6f6f6f",
         "countryOutline": "#ac2b4f",
         "graticule": "#bebebe"
