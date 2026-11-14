@@ -134,5 +134,12 @@
   },
   "T031": {
     "text": "https://www.britannica.com/topic/inglenook"
+  },
+  "T032": {
+    "author": "Bogatir",
+    "licence": "CC BY-SA 4.0",
+    "licenceUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Bogatir-cantou-11.jpg",
+    "title": "Bogatir-cantou-11"
   }
 }
