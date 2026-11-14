@@ -8,7 +8,7 @@
     },
     {
       "family": "Noto Sans Display",
-      "google": "Noto+Sans+Display:wght@400..700",
+      "google": "Noto+Sans+Display:ital,wght@0,400..700;1,400..700",
       "fallback": "sans-serif"
     },
     {
@@ -23,7 +23,7 @@
     },
     {
       "family": "IBM Plex Mono",
-      "google": "IBM+Plex+Mono:wght@400;500",
+      "google": "IBM+Plex+Mono:ital,wght@0,400;0,500;1,400;1,500",
       "fallback": "monospace"
     },
     {
@@ -70,7 +70,9 @@
         "land": "#24211d",
         "border": "#6b6157",
         "core": "#8a8177",
-        "fringe": "#a39888"
+        "fringe": "#a39888",
+        "coreLine": "#d8cfc3",
+        "countryOutline": "#a39888"
       }
     },
     {
@@ -105,7 +107,9 @@
         "land": "#24211d",
         "border": "#6b6157",
         "core": "#8a8177",
-        "fringe": "#a39888"
+        "fringe": "#a39888",
+        "coreLine": "#d8cfc3",
+        "countryOutline": "#a39888"
       }
     },
     {
@@ -140,7 +144,9 @@
         "land": "#24211d",
         "border": "#6b6157",
         "core": "#8a8177",
-        "fringe": "#a39888"
+        "fringe": "#a39888",
+        "coreLine": "#d8cfc3",
+        "countryOutline": "#a39888"
       }
     }
   ]

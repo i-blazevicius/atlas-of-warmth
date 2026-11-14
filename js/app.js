@@ -539,6 +539,8 @@ function setMapColours(c) {
   map.setPaintProperty('ocean-mask', 'fill-color', T.ocean);
   map.setPaintProperty('land', 'fill-color', T.land);
   map.setPaintProperty('borders', 'line-color', T.border);
+  for (const id of ['core-line', 'fringe-line']) map.setPaintProperty(id, 'line-color', T.coreLine);
+  map.setPaintProperty('country-selected', 'line-color', T.countryOutline);
   for (const id of ['core', 'region-core']) map.setPaintProperty(id, 'fill-color', T.core);
   map.updateImage('hatch', hatchImage(T.fringe, T.fringeOpacity));
 }
@@ -571,13 +573,14 @@ function addLayers(countries) {
   map.addSource('regions', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
   map.addLayer({ id: 'region-fringe', type: 'fill', source: 'regions', filter: ['==', ['get', 'role'], 'fringe'], paint: { 'fill-pattern': 'hatch' } });
   map.addLayer({ id: 'region-core', type: 'fill', source: 'regions', filter: ['==', ['get', 'role'], 'core'], paint: { 'fill-color': T.core, 'fill-opacity': T.coreOpacity } });
-  // Outlines of the selected type's area, so it stays readable over a climate underlay.
+  map.addLayer({ id: 'borders', type: 'line', source: 'countries', paint: { 'line-color': T.border, 'line-width': T.borderWidth } });
+  // Outlines of the selected type's area, drawn over the borders (otherwise the thin border line shows
+  // through the middle of the wider outline), so the area stays readable over a climate underlay.
   map.addLayer({ id: 'core-line', type: 'line', source: 'countries', filter: none, paint: { 'line-color': T.coreLine, 'line-width': T.areaOutline } });
   map.addLayer({ id: 'fringe-line', type: 'line', source: 'countries', filter: none, paint: { 'line-color': T.coreLine, 'line-width': T.areaOutline * 0.6, 'line-dasharray': [2, 1.5] } });
   // Region outlines switched off for now; remove the // to bring them back.
   // map.addLayer({ id: 'region-core-line', type: 'line', source: 'regions', filter: ['==', ['get', 'role'], 'core'], paint: { 'line-color': T.coreLine, 'line-width': T.areaOutline } });
   // map.addLayer({ id: 'region-fringe-line', type: 'line', source: 'regions', filter: ['==', ['get', 'role'], 'fringe'], paint: { 'line-color': T.coreLine, 'line-width': T.areaOutline * 0.6, 'line-dasharray': [2, 1.5] } });
-  map.addLayer({ id: 'borders', type: 'line', source: 'countries', paint: { 'line-color': T.border, 'line-width': T.borderWidth } });
   map.addLayer({ id: 'country-selected', type: 'line', source: 'countries', filter: none, paint: { 'line-color': T.countryOutline, 'line-width': T.countryOutlineWidth } });
   map.addLayer({
     id: 'points', type: 'circle', source: 'types', filter: ['!', ['has', 'point_count']],

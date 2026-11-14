@@ -29,6 +29,10 @@
   --weight-display: 500;
   --weight-title: 700;        /* the 'Atlas of Warmth' title only */
   --weight-body: 400;
+  --style-title: normal;      /* 'italic' or 'normal' */
+  --style-display: normal;
+  --style-body: normal;
+  --style-label: normal;
   --title-size: 26px;         /* the 'Atlas of Warmth' title */
   --name-size: 30px;          /* type names on the cards */
   --body-size: 14px;          /* running text in the panels */
@@ -44,7 +48,7 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--space); color: var(--ink); }
-body { font-family: var(--font-body); font-weight: var(--weight-body); overflow: hidden; }
+body { font-family: var(--font-body); font-weight: var(--weight-body); font-style: var(--style-body); overflow: hidden; }
 #map { position: absolute; inset: 0; }
 button { font: inherit; color: inherit; }
 
@@ -53,17 +57,17 @@ button { font: inherit; color: inherit; }
   position: absolute; top: 16px; left: 16px; z-index: 2;
   width: 230px; padding: 16px 16px 14px;
   background: var(--panel-bg); border: 1px solid var(--panel-line); border-radius: var(--radius);
-  font-family: var(--font-ui); font-size: 11.5px;
+  font-family: var(--font-ui); font-style: normal; font-size: 11.5px;
   backdrop-filter: blur(6px);
 }
-.title { font-family: var(--font-title); font-weight: var(--weight-title); font-size: var(--title-size); line-height: 1; margin: 0 0 4px; letter-spacing: 0; }
+.title { font-family: var(--font-title); font-style: var(--style-title); font-weight: var(--weight-title); font-size: var(--title-size); line-height: 1; margin: 0 0 4px; letter-spacing: 0; }
 .count { color: var(--ink-dim); margin: 0 0 14px; }
 .control-group { margin-bottom: 10px; }
-.control-label { display: block; font-family: var(--font-label); color: var(--ink-faint); text-transform: var(--label-case); font-size: var(--label-size); letter-spacing: var(--label-tracking); font-weight: var(--label-weight); margin-bottom: 4px; }
+.control-label { display: block; font-family: var(--font-label); font-style: var(--style-label); color: var(--ink-faint); text-transform: var(--label-case); font-size: var(--label-size); letter-spacing: var(--label-tracking); font-weight: var(--label-weight); margin-bottom: 4px; }
 .segmented { display: flex; border: 1px solid var(--panel-line); border-radius: var(--radius); }
 .segmented button {
   flex: 1; padding: 5px 6px; background: none; border: 0; cursor: pointer;
-  font-family: var(--font-ui); font-size: 11px; color: var(--ink-dim);
+  font-family: var(--font-ui); font-style: normal; font-size: 11px; color: var(--ink-dim);
 }
 .segmented button + button { border-left: 1px solid var(--panel-line); }
 .segmented button.active { background: var(--ink); color: var(--space); }
@@ -80,7 +84,7 @@ button { font: inherit; color: inherit; }
 .style-panel { top: auto; overflow-y: auto; padding: 0; }
 .sp-head {
   display: flex; justify-content: space-between; width: 100%; padding: 10px 16px; background: none; border: 0; cursor: pointer;
-  font-family: var(--font-label); font-size: var(--label-size); text-transform: var(--label-case); letter-spacing: var(--label-tracking);
+  font-family: var(--font-label); font-style: var(--style-label); font-size: var(--label-size); text-transform: var(--label-case); letter-spacing: var(--label-tracking);
   font-weight: var(--label-weight); color: var(--ink-faint); text-align: left;
 }
 .sp-head span { font-size: 13px; line-height: 1; }
@@ -88,7 +92,7 @@ button { font: inherit; color: inherit; }
 .sp-versions { list-style: none; margin: 0 0 8px; padding: 0; border: 1px solid var(--panel-line); border-radius: var(--radius); }
 .sp-versions li { display: flex; align-items: center; }
 .sp-versions li + li { border-top: 1px solid var(--panel-line); }
-.sp-versions button { background: none; border: 0; cursor: pointer; text-align: left; padding: 5px 8px; color: var(--ink-dim); font-family: var(--font-ui); font-size: 11px; }
+.sp-versions button { background: none; border: 0; cursor: pointer; text-align: left; padding: 5px 8px; color: var(--ink-dim); font-family: var(--font-ui); font-style: normal; font-size: 11px; }
 .sp-versions li > button:first-child { flex: 1; }
 .sp-versions li.on > button:first-child { color: var(--ink); box-shadow: inset 2px 0 0 var(--accent); }
 .sp-versions li.draft > button:first-child { font-style: italic; }
@@ -100,10 +104,10 @@ button { font: inherit; color: inherit; }
 .sp-save input, .sp-row input[type=text] { flex: 1; min-width: 0; width: 100%; margin-bottom: 6px; }
 .sp-body input[type=text], .sp-body input[type=number], .sp-body select {
   background: transparent; color: var(--ink); border: 1px solid var(--panel-line); border-radius: var(--radius);
-  font-family: var(--font-ui); font-size: 11px; padding: 4px 6px;
+  font-family: var(--font-ui); font-style: normal; font-size: 11px; padding: 4px 6px;
 }
 .sp-body select option { background: #1a1816; }
-.sp-btn { flex: 1; padding: 5px 6px; background: none; border: 1px solid var(--panel-line); border-radius: var(--radius); cursor: pointer; font-family: var(--font-ui); font-size: 11px; color: var(--ink-dim); }
+.sp-btn { flex: 1; padding: 5px 6px; background: none; border: 1px solid var(--panel-line); border-radius: var(--radius); cursor: pointer; font-family: var(--font-ui); font-style: normal; font-size: 11px; color: var(--ink-dim); }
 .sp-btn.on { background: var(--ink); color: var(--space); }
 .sp-note { color: var(--ink-faint); font-size: 10px; line-height: 1.35; margin: 2px 0 8px; }
 .sp-note:empty { display: none; }
@@ -132,7 +136,7 @@ button { font: inherit; color: inherit; }
 .climate-opacity input { flex: 1; min-width: 0; width: 100%; margin: 0; accent-color: var(--accent); }
 .credit {
   position: absolute; left: 16px; bottom: 10px; z-index: 2; margin: 0; max-width: 60vw;
-  font-family: var(--font-ui); font-size: 9.5px; color: var(--ink-faint);
+  font-family: var(--font-ui); font-style: normal; font-size: 9.5px; color: var(--ink-faint);
 }
 
 /* ── Clusters (merged points) ────────────────────────────── */
@@ -142,7 +146,7 @@ button { font: inherit; color: inherit; }
   display: grid; place-items: center; cursor: pointer;
   background: var(--node); color: var(--space);
   border: 1.5px solid var(--space);
-  font-family: var(--font-ui); font-size: 10px; font-weight: 500;
+  font-family: var(--font-ui); font-style: normal; font-size: 10px; font-weight: 500;
 }
 /* No transform/transition on .cluster itself: the map moves markers with transform, and a transition makes them lag. */
 
@@ -195,32 +199,32 @@ button { font: inherit; color: inherit; }
 .type-image figcaption {
   position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 10px 5px;
   background: linear-gradient(transparent, rgba(13, 12, 11, 0.85));
-  font-family: var(--font-ui); font-size: 9.5px; color: var(--ink-dim); line-height: 1.3;
+  font-family: var(--font-ui); font-style: normal; font-size: 9.5px; color: var(--ink-dim); line-height: 1.3;
 }
 .type-image figcaption a { color: inherit; text-decoration: none; }
 .type-image figcaption a:hover { color: var(--ink); text-decoration: underline; }
-.type-image.empty { aspect-ratio: 4 / 3; display: grid; place-items: center; color: var(--ink-faint); font-family: var(--font-ui); font-size: 11px; border-bottom: 1px solid var(--panel-line); }
+.type-image.empty { aspect-ratio: 4 / 3; display: grid; place-items: center; color: var(--ink-faint); font-family: var(--font-ui); font-style: normal; font-size: 11px; border-bottom: 1px solid var(--panel-line); }
 
-.family { font-family: var(--font-label); font-size: var(--label-size); text-transform: var(--label-case); letter-spacing: var(--label-tracking); font-weight: var(--label-weight); color: var(--accent); margin: 0 0 8px; }
-.translit { font-family: var(--font-display); font-weight: var(--weight-display); font-size: var(--name-size); line-height: 1.1; letter-spacing: -0.01em; margin: 0; }
+.family { font-family: var(--font-label); font-style: var(--style-label); font-size: var(--label-size); text-transform: var(--label-case); letter-spacing: var(--label-tracking); font-weight: var(--label-weight); color: var(--accent); margin: 0 0 8px; }
+.translit { font-family: var(--font-display); font-style: var(--style-display); font-weight: var(--weight-display); font-size: var(--name-size); line-height: 1.1; letter-spacing: -0.01em; margin: 0; }
 .native { font-family: var(--font-native); font-size: 20px; color: var(--ink-dim); margin: 4px 0 0; line-height: 1.2; }
-.language { font-family: var(--font-ui); font-size: 11px; color: var(--ink-faint); margin: 6px 0 0; }
+.language { font-family: var(--font-ui); font-style: normal; font-size: 11px; color: var(--ink-faint); margin: 6px 0 0; }
 .also-known { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 12px 0 0; }
 .also-known button {
   background: none; border: 1px solid var(--panel-line); border-radius: var(--radius); cursor: pointer;
   padding: 3px 7px; font-family: var(--font-body); font-size: 13px; color: var(--ink-dim);
 }
-.also-known button span { font-family: var(--font-ui); font-size: 9px; color: var(--ink-faint); margin-left: 5px; }
+.also-known button span { font-family: var(--font-ui); font-style: normal; font-size: 9px; color: var(--ink-faint); margin-left: 5px; }
 .also-known button:hover { color: var(--ink); border-color: var(--ink-faint); }
 .also-known button.current { color: var(--ink); border-color: var(--accent); }
 .type-name { font-style: italic; font-size: var(--body-size); line-height: 1.3; color: var(--ink-dim); margin: 12px 0 18px; }
 
 .fields { margin: 0; }
-.fields dt { font-family: var(--font-label); font-size: var(--label-size); text-transform: var(--label-case); letter-spacing: var(--label-tracking); font-weight: var(--label-weight); color: var(--ink-faint); margin-top: 14px; }
+.fields dt { font-family: var(--font-label); font-style: var(--style-label); font-size: var(--label-size); text-transform: var(--label-case); letter-spacing: var(--label-tracking); font-weight: var(--label-weight); color: var(--ink-faint); margin-top: 14px; }
 .fields dd { margin: 4px 0 0; font-size: var(--body-size); line-height: 1.4; }
 
 .stories { margin-top: 20px; }
-.stories h2, .list-title { font-family: var(--font-label); font-weight: var(--label-weight); font-size: var(--label-size); text-transform: var(--label-case); letter-spacing: var(--label-tracking); color: var(--ink-faint); margin: 0 0 6px; }
+.stories h2, .list-title { font-family: var(--font-label); font-style: var(--style-label); font-weight: var(--label-weight); font-size: var(--label-size); text-transform: var(--label-case); letter-spacing: var(--label-tracking); color: var(--ink-faint); margin: 0 0 6px; }
 .stories ul, .type-list { list-style: none; margin: 0; padding: 0; }
 .stories li, .type-list li { border-top: 1px solid var(--panel-line); }
 .stories button, .type-list button {
@@ -229,12 +233,12 @@ button { font: inherit; color: inherit; }
 }
 .stories button::after { content: ' →'; color: var(--accent); }
 .stories button:hover, .type-list button:hover { color: var(--accent); }
-.stories .missing { color: var(--ink-faint); font-family: var(--font-ui); font-size: 11px; padding: 8px 0; }
-.type-list small { display: block; font-family: var(--font-ui); font-size: 10px; color: var(--ink-faint); }
+.stories .missing { color: var(--ink-faint); font-family: var(--font-ui); font-style: normal; font-size: 11px; padding: 8px 0; }
+.type-list small { display: block; font-family: var(--font-ui); font-style: normal; font-size: 10px; color: var(--ink-faint); }
 
-.meta { font-family: var(--font-ui); font-size: 10px; color: var(--ink-faint); margin-top: 24px; }
+.meta { font-family: var(--font-ui); font-style: normal; font-size: 10px; color: var(--ink-faint); margin-top: 24px; }
 
-.story-title { font-family: var(--font-display); font-weight: var(--weight-display); font-size: 26px; line-height: 1.05; margin: 0 0 14px; }
+.story-title { font-family: var(--font-display); font-style: var(--style-display); font-weight: var(--weight-display); font-size: 26px; line-height: 1.05; margin: 0 0 14px; }
 .story-text { font-size: var(--body-size); line-height: 1.5; white-space: pre-wrap; }
 
 /* ── Floating cards (config.js → cards: 'float') ───────────
@@ -263,7 +267,7 @@ button { font: inherit; color: inherit; }
 .message {
   position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 4;
   padding: 10px 16px; background: var(--panel-bg); border: 1px solid var(--panel-line);
-  font-family: var(--font-ui); font-size: 12px; max-width: 80vw;
+  font-family: var(--font-ui); font-style: normal; font-size: 12px; max-width: 80vw;
 }
 
 /* Hide the MapLibre logo/attribution (borders: Natural Earth, public domain) */

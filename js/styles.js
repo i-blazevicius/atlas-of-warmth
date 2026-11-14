@@ -93,10 +93,10 @@ export function applyCss(style, fonts = []) {
 // ── The panel ──────────────────────────────────────────────
 // Font roles shown in the panel: CSS variable for the font, plus optional weight and size variables.
 const ROLES = [
-  { label: 'Title', font: '--font-title', weight: '--weight-title', size: '--title-size' },
-  { label: 'Type names', font: '--font-display', weight: '--weight-display', size: '--name-size' },
-  { label: 'Text', font: '--font-body', weight: '--weight-body', size: '--body-size' },
-  { label: 'Labels', font: '--font-label', weight: '--label-weight', size: '--label-size', caps: true },
+  { label: 'Title', font: '--font-title', weight: '--weight-title', size: '--title-size', italic: '--style-title' },
+  { label: 'Type names', font: '--font-display', weight: '--weight-display', size: '--name-size', italic: '--style-display' },
+  { label: 'Text', font: '--font-body', weight: '--weight-body', size: '--body-size', italic: '--style-body' },
+  { label: 'Labels', font: '--font-label', weight: '--label-weight', size: '--label-size', italic: '--style-label', caps: true },
   { label: 'Buttons', font: '--font-ui' },
   { label: 'Native names', font: '--font-native' },
 ];
@@ -112,6 +112,8 @@ const COLOURS = [
   { label: 'Borders', key: 'border', map: true },
   { label: 'Widely used', key: 'core', map: true },
   { label: 'Less prevalent', key: 'fringe', map: true },
+  { label: 'Area outline', key: 'coreLine', map: true },
+  { label: 'Clicked country outline', key: 'countryOutline', map: true },
 ];
 const NATIVE_TAIL = {
   serif: "'Noto Serif SC', 'Noto Serif JP', 'Noto Serif KR', 'Noto Serif Armenian', 'Noto Serif Georgian', 'Noto Serif Gurmukhi', 'Noto Serif Devanagari', 'Noto Naskh Arabic', 'Noto Sans Canadian Aboriginal', serif",
@@ -212,6 +214,11 @@ export function initPanel({ CONFIG, lib, sha, current, setMapColours }) {
           <select data-sp-font="${r.font}">${fontOptions(s.css?.[r.font])}</select>
           ${r.weight ? `<input type="number" min="100" max="900" step="100" title="Weight" data-sp-num="${r.weight}" value="${parseInt(s.css?.[r.weight] ?? 400)}">` : ''}
           ${r.size ? `<input type="number" min="6" max="80" step="0.5" title="Size (px)" data-sp-num="${r.size}" data-unit="px" value="${parseFloat(s.css?.[r.size] ?? 14)}">` : ''}
+          ${r.italic ? (() => {
+            const f = P.lib.fonts.find((x) => x.family === primaryFamily(s.css?.[r.font]));
+            const ok = !f?.google || /ital/.test(f.google); // Google fonts loaded without italics would only be slanted
+            return `<label class="sp-caps check"${ok ? '' : ' title="This font has no italics loaded"'}><input type="checkbox" data-sp-italic="${r.italic}" ${s.css?.[r.italic] === 'italic' ? 'checked' : ''}${ok ? '' : ' disabled'}> Italic</label>`;
+          })() : ''}
           ${r.caps ? `<label class="sp-caps check"><input type="checkbox" data-sp-caps ${s.css?.['--label-case'] === 'uppercase' ? 'checked' : ''}> Capitals</label>
             <label class="sp-caps">Spacing <input type="number" min="0" max="0.5" step="0.01" data-sp-num="--label-tracking" data-unit="em" value="${parseFloat(s.css?.['--label-tracking'] ?? 0)}"></label>` : ''}
         </div>`).join('')}
@@ -263,6 +270,9 @@ export function initPanel({ CONFIG, lib, sha, current, setMapColours }) {
         ? `'${t.value}', ${fallback === 'serif' ? NATIVE_TAIL.serif : NATIVE_TAIL.other}`
         : `'${t.value}', ${fallback}`;
       edit((s) => { s.css[t.dataset.spFont] = stack; });
+      render(); // the Italic tick box depends on the font
+    } else if (t.dataset.spItalic) {
+      edit((s) => { s.css[t.dataset.spItalic] = t.checked ? 'italic' : 'normal'; });
     } else if (t.hasAttribute('data-sp-caps')) {
       edit((s) => { s.css['--label-case'] = t.checked ? 'uppercase' : 'none'; });
     }
