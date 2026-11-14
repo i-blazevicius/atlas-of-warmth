@@ -263,7 +263,7 @@
         "--style-native": "italic",
         "--style-body": "normal",
         "--style-display": "italic",
-        "--node": "#edd3db",
+        "--node": "#f2e6ea",
         "--dot-line": "#373737"
       },
       "map": {
