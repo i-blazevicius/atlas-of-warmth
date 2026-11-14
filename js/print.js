@@ -43,6 +43,7 @@ function applyStyle(name) {
   colours = { ...T, ...Object.fromEntries(Object.entries(Styles.mapColours(style)).filter(([, v]) => v)) };
 }
 applyStyle(styleName);
+Styles.reveal();
 
 // ── Data ───────────────────────────────────────────────────
 $('p-info').textContent = 'Loading data…';

@@ -7,6 +7,7 @@ const CONFIG = (await import(`./config.js${new URL(import.meta.url).search}`)).d
   const S = await import(`./styles.js${new URL(import.meta.url).search}`);
   const { lib } = await S.loadLibrary({ ...CONFIG, stylePanel: false });
   S.applyCss(S.startingStyle(lib, { stylePanel: false }), lib.fonts);
+  S.reveal();
 }
 
 const $ = (id) => document.getElementById(id);

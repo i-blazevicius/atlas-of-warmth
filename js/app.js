@@ -88,11 +88,12 @@ const Styles = await import(`./styles.js${new URL(import.meta.url).search}`);
 const styleLib = await Styles.loadLibrary(CONFIG);
 const startStyle = Styles.startingStyle(styleLib.lib, CONFIG);
 if (startStyle) {
-  Styles.applyCss(startStyle, styleLib.lib.fonts);
+  Styles.applyCss(startStyle, styleLib.lib.fonts, { remember: true });
   for (const [k, v] of Object.entries(Styles.mapColours(startStyle))) if (v) T[k] = v;
   if (T.core) document.documentElement.style.setProperty('--area', T.core);
   if (T.fringe) document.documentElement.style.setProperty('--hatch', T.fringe);
 }
+Styles.reveal();
 const $ = (id) => document.getElementById(id);
 
 // Data, parsing and the type card are shared with the print page: js/core.js.
@@ -744,6 +745,9 @@ function refilter() {
   updateCount();
 }
 $('filter-stories').addEventListener('change', (e) => { state.onlyStories = e.target.checked; refilter(); });
+// Filters on at the start (CONFIG.view.onlyImages / onlyStories).
+state.onlyImages = !!V.onlyImages; $('filter-images').checked = state.onlyImages;
+state.onlyStories = !!V.onlyStories; $('filter-stories').checked = state.onlyStories;
 $('filter-images').addEventListener('change', (e) => { state.onlyImages = e.target.checked; refilter(); });
 
 // Which types have an image: list the repository's images folder (GitHub API, no login needed).
@@ -797,7 +801,7 @@ async function start() {
   }
   showMessage('');
   updateCount();
-  loadImageList();
+  await loadImageList(); // before the first dots, as 'Only types with images' may be on from the start
 
   await mapLoaded;
   applyProjection();

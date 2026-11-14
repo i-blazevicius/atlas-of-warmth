@@ -137,6 +137,8 @@ export default {
     smallAreaMaxZoom: 7,
     // Countries too big to zoom out for: still shaded, but ignored when deciding whether to zoom.
     // (Their regions, e.g. RU-SAK, still count.)
+    onlyImages: true,        // start with 'Only types with images' ticked (types without a picture hidden)
+    onlyStories: false,      // start with 'Only types with stories' ticked
     fitIgnore: ['RUS'],
   },
 

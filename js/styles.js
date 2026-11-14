@@ -77,17 +77,29 @@ function hexToRgba(hex, a) {
   return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 }
 
-export function applyCss(style, fonts = []) {
+export function applyCss(style, fonts = [], { remember = false } = {}) {
   if (!style) return;
   const root = document.documentElement.style;
+  const vars = {}, used = [];
   for (const [k, v] of Object.entries(style.css ?? {})) {
-    root.setProperty(k, k === '--panel-bg' ? hexToRgba(v, PANEL_ALPHA) : v);
+    vars[k] = k === '--panel-bg' ? hexToRgba(v, PANEL_ALPHA) : v;
+    root.setProperty(k, vars[k]);
     if (k.startsWith('--font-')) {
       // Load the first-choice font (and, for native names, every font in the list that we know).
       const names = k === '--font-native' ? v.split(',').map((x) => x.trim().replace(/['"]/g, '')) : [primaryFamily(v)];
-      for (const n of names) loadFont(fonts.find((f) => f.family === n));
+      for (const n of names) { const f = fonts.find((x) => x.family === n); if (f) { loadFont(f); used.push(f); } }
     }
   }
+  // Remembered so the next visit can put this style on before anything shows (see the top of index.html).
+  if (remember) try { localStorage.setItem(STYLE_CACHE_KEY, JSON.stringify({ vars, fonts: used })); } catch {}
+}
+const STYLE_CACHE_KEY = 'atlas-of-warmth-style-cache';
+
+// Pages start hidden (class "styling" on <html>) until the style and its fonts are in, so the
+// built-in look never flashes up first. Never waits longer than 1.5 s.
+export function reveal() {
+  const done = () => document.documentElement.classList.remove('styling');
+  Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 1500))]).then(done, done);
 }
 
 // Starting value of a CSS variable (from css/style.css), for settings a saved version does not have yet.
@@ -168,7 +180,7 @@ export function initPanel({ CONFIG, lib, sha, current, setMapColours }) {
   });
 
   function show(style) {
-    applyCss(style, P.lib.fonts);
+    applyCss(style, P.lib.fonts, { remember: true });
     setMapColours(mapColours(style));
   }
 

@@ -53,6 +53,7 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--space); color: var(--ink); }
+html.styling body { visibility: hidden; }   /* until the style version is on (js/styles.js → reveal) */
 body { font-family: var(--font-body); font-weight: var(--weight-body); font-style: var(--style-body); overflow: hidden; }
 #map { position: absolute; inset: 0; }
 button { font: inherit; color: inherit; }
