@@ -102,7 +102,7 @@ export default {
 
   // Style panel under the map controls, for trying fonts and colours and saving them as versions.
   // true = shown, false = hidden (visitors then see the default version from data/styles.json).
-  stylePanel: true,
+  stylePanel: false,
 
   // Print page (print.html): every type card, packed into balanced columns on the smallest paper that fits.
   // All of these can also be changed in the bar at the top of that page.
