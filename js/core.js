@@ -11,8 +11,17 @@ export function createCore(CONFIG, V) {
     selected: null,
     onlyStories: false,
     onlyImages: false,
-    images: null,         // Set of type IDs that have an image (from the repository's images folder)
+    images: null,         // Set of type IDs that have an image (from data/images.json)
+    problems: [],         // things in the sheet the map could not use; shown under the hearth count
   };
+  const problem = (text) => { if (!state.problems.includes(text)) state.problems.push(text); console.warn(text); };
+
+  // An error with a short code and a plain explanation; the pages show it as "E3 · …".
+  function fail(code, text) {
+    const err = new Error(text);
+    err.code = code;
+    return err;
+  }
 
   // ── Helpers ────────────────────────────────────────────────
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -30,10 +39,18 @@ export function createCore(CONFIG, V) {
     return out;
   }
 
-  async function loadCSV(url) {
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`${res.status} loading ${url}`);
+  // tab: 'Types', 'Cases' or 'Names', only used to word the error.
+  async function loadCSV(url, tab = 'sheet') {
+    let res;
+    try { res = await fetch(url, { cache: 'no-store' }); } catch {
+      throw fail('E2', `Could not reach the ${tab} tab of the Google Sheet. Check the internet connection, then the link in js/config.js → data.`);
+    }
+    if (!res.ok) throw fail('E2', `Google answered ${res.status} for the ${tab} tab. Check its link in js/config.js → data.`);
     const text = await res.text();
+    // An unpublished or private sheet answers with a web page (sign-in or error) instead of CSV.
+    if (/^\s*<(!doctype|html)/i.test(text)) {
+      throw fail('E3', `The ${tab} tab did not come back as data. The sheet is probably no longer published: in Google Sheets use File → Share → Publish to web.`);
+    }
     const parsed = Papa.parse(text, { header: true, skipEmptyLines: 'greedy' });
     return { rows: parsed.data, headers: parsed.meta.fields ?? [] };
   }
@@ -41,8 +58,8 @@ export function createCore(CONFIG, V) {
   // ── Data ───────────────────────────────────────────────────
   function parseTypes({ rows, headers }) {
     const c = resolveColumns(headers, CONFIG.typeColumns);
-    const missing = Object.entries(c).filter(([, v]) => !v).map(([k]) => CONFIG.typeColumns[k]);
-    if (missing.length) console.warn('Columns not found in Types sheet:', missing);
+    if (!c.id) throw fail('E4', `The Types tab has no "${CONFIG.typeColumns.id}" column, so no hearths can be read. Check the header row of the sheet, or typeColumns in js/config.js.`);
+    for (const [k, v] of Object.entries(c)) if (!v) problem(`Types tab: column "${CONFIG.typeColumns[k]}" not found (was it renamed?)`);
     const get = (row, key) => (c[key] ? String(row[c[key]] ?? '').trim() : '');
 
     const types = [];
@@ -51,7 +68,8 @@ export function createCore(CONFIG, V) {
       if (!id) continue;
       const lat = parseFloat(get(row, 'lat'));
       const lon = parseFloat(get(row, 'lon'));
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) { console.warn(`${id}: no usable coordinates`); continue; }
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) { problem(`${id}: left off the map, no usable centre latitude and longitude`); continue; }
+      if (types.some((t) => t.id === id)) { problem(`${id}: this ID appears on more than one row; only the first is used`); continue; }
       types.push({
         id, lat, lon,
         family: get(row, 'family'),
@@ -74,10 +92,12 @@ export function createCore(CONFIG, V) {
   // Names tab: local names per type and place.
   function parseNames({ rows, headers }) {
     const c = resolveColumns(headers, CONFIG.nameColumns);
+    for (const k of ['type', 'name', 'where']) if (!c[k]) problem(`Names tab: column "${CONFIG.nameColumns[k]}" not found (was it renamed?)`);
     const get = (row, key) => (c[key] ? String(row[c[key]] ?? '').trim() : '');
     for (const row of rows) {
       const t = state.byId.get(get(row, 'type'));
       const name = get(row, 'name');
+      if (!t && name && get(row, 'type')) problem(`Names tab: "${name}" is given to ${get(row, 'type')}, which is not in the Types tab`);
       if (!t || !name) continue;
       t.names.push({
         name,
@@ -109,10 +129,8 @@ export function createCore(CONFIG, V) {
     }
     return false;
   }
-  // Where a name's dot goes: its own coordinates; else the type's centre if that lies in the name's
-  // first area (its country); else a point inside that area.
-  // first the name's own coordinates; then the type's centre if it lies in one of the name's countries
-  // (country codes only); otherwise one dot in the middle of all its areas (if that middle falls inside
+  // Where a name's dot goes: first the name's own coordinates; then the type's centre if it lies in one
+  // of the name's countries (country codes only); otherwise one dot in the middle of all its areas (if that middle falls inside
   // one of them), else inside the area nearest to that middle.
   function nameDot(t, n) {
     if (Number.isFinite(n.lat) && Number.isFinite(n.lon)) return [n.lon, n.lat];
@@ -145,6 +163,7 @@ export function createCore(CONFIG, V) {
 
   function parseCases({ rows, headers }) {
     const c = resolveColumns(headers, CONFIG.caseColumns);
+    if (headers.length) for (const k of ['id', 'title', 'story']) if (!c[k]) problem(`Cases tab: column "${CONFIG.caseColumns[k]}" not found (was it renamed?)`);
     const map = new Map();
     for (const row of rows) {
       const id = c.id ? String(row[c.id] ?? '').trim() : '';
@@ -185,15 +204,20 @@ export function createCore(CONFIG, V) {
     const out = [];
     for (const [iso, neighbours] of Object.entries(state.borders)) {
       if (set.has(iso)) continue;
-      let total = 0, shared = 0, dirs = 0;
+      // dirs: 36 yes/no slots, one per 10° of direction from the country's centre, true where a listed
+      // border lies. (The file packs them into one number of up to 36 binary digits; they are unpacked by
+      // division because JavaScript's bit operators only keep 32 digits.)
+      let total = 0, shared = 0;
+      const dirs = new Array(36).fill(false);
       for (const [n, [len, bits]] of Object.entries(neighbours)) {
         total += len;
-        if (set.has(n)) { shared += len; dirs |= bits; }
+        if (!set.has(n)) continue;
+        shared += len;
+        for (let i = 0; i < 36; i++) if (Math.floor(bits / 2 ** i) % 2) dirs[i] = true;
       }
       if (!total || shared / total < CONFIG.inferGaps.share) continue;
-      // dirs: 36 bits, one per 10° of direction from the country's centre where a listed border lies.
       let run = 0, widest = 0;
-      for (let i = 0; i < 72; i++) { if (dirs & (1 << (i % 36))) run = 0; else widest = Math.max(widest, ++run); }
+      for (let i = 0; i < 72; i++) { if (dirs[i % 36]) run = 0; else widest = Math.max(widest, ++run); }
       if (Math.min(widest, 36) * 10 <= CONFIG.inferGaps.maxGap) out.push(iso);
     }
     return out;
@@ -220,8 +244,6 @@ export function createCore(CONFIG, V) {
     const wanted = new Set(codes);
     const files = await Promise.all([...new Set(codes.map(regionCountry).filter(Boolean))].map(loadRegionFile));
     const found = files.flatMap((fc) => fc.features.filter((f) => wanted.has(f.properties.code)));
-    const missing = codes.filter((c) => !found.some((f) => f.properties.code === c));
-    if (missing.length) console.warn('Region codes not found:', missing.join(', '));
     return found.map((f) => ({ ...f, properties: { ...f.properties, role } }));
   }
   function featureBox(f) {
@@ -328,7 +350,8 @@ export function createCore(CONFIG, V) {
     const others = t.names.length > 1 || (t.names.length === 1 && t.names[0].name !== (t.translit || t.name))
       ? `<p class="also-known">${t.names.map((n, i) => `<button type="button" data-name="${i}" class="${i === nameIndex ? 'current' : ''}" title="${esc(n.language)}${n.note ? ' · ' + esc(n.note) : ''}">${esc(n.name)}<span>${esc(n.where.slice(0, 2).join(' '))}${n.where.length > 2 ? '…' : ''}</span></button>`).join('')}</p>`
       : '';
-    const keep = body.querySelector(`.type-image[data-id="${t.id}"]`); // same type: keep its image, no reload
+    const old = body.querySelector('.type-image');
+    const keep = old?.dataset.id === t.id ? old : null; // same type: keep its image, no reload
     body.innerHTML = `
       <figure class="type-image" data-id="${esc(t.id)}"></figure>
       ${t.family ? `<p class="family">${esc(t.family)}</p>` : ''}
@@ -398,20 +421,35 @@ export function createCore(CONFIG, V) {
     tryNext();
   }
 
+  // Area codes the map cannot draw, and stories that are linked but missing.
+  function checkCodes() {
+    // A code mapped to nothing in isoAliases (e.g. a tiny island) counts as known: it is skipped on purpose.
+    const known = (code) => (isRegion(code)
+      ? !state.regionIndex || code in state.regionIndex.names
+      : expandIso([code]).every((iso) => state.countryShapes.has(iso)));
+    for (const t of state.types) {
+      const bad = [...new Set([...t.core, ...t.fringe, ...t.names.flatMap((n) => n.where)])].filter((c) => !known(c));
+      if (bad.length) problem(`${t.id}: area code${bad.length > 1 ? 's' : ''} not recognised, so not shaded: ${bad.join(', ')}`);
+      const lost = t.cases.filter((cid) => !state.cases.has(cid));
+      if (lost.length && state.caseHeaders.length) problem(`${t.id}: linked stor${lost.length > 1 ? 'ies' : 'y'} not found in the Cases tab: ${lost.join(', ')}`);
+    }
+  }
+
   // Load the sheet (types, names, stories) and the shapes needed to place and shade types.
   // Returns the country shapes.
   async function loadData() {
     const [typesCSV, casesCSV, countries, namesCSV] = await Promise.all([
-      loadCSV(CONFIG.data.types),
-      loadCSV(CONFIG.data.cases).catch((err) => { console.warn('Cases not loaded:', err); return { rows: [], headers: [] }; }),
-      fetch(CONFIG.data.countries).then((r) => r.json()),
-      (CONFIG.data.names ? loadCSV(CONFIG.data.names) : Promise.resolve(null)).catch((err) => { console.warn('Names not loaded:', err); return null; }),
+      loadCSV(CONFIG.data.types, 'Types'),
+      loadCSV(CONFIG.data.cases, 'Cases').catch((err) => { problem(`Stories not loaded. ${err.code ?? ''} ${err.message}`); return { rows: [], headers: [] }; }),
+      fetch(CONFIG.data.countries).then((r) => r.json()).catch(() => { throw fail('E5', `Could not load the country shapes (${CONFIG.data.countries}). The file is missing from the site or the connection dropped.`); }),
+      (CONFIG.data.names ? loadCSV(CONFIG.data.names, 'Names') : Promise.resolve(null)).catch((err) => { problem(`Local names not loaded. ${err.code ?? ''} ${err.message}`); return null; }),
       fetch(CONFIG.data.labels).then((r) => r.json()).then((x) => { state.labels = x; }).catch(() => {}),
       fetch(CONFIG.data.credits, { cache: 'no-store' }).then((r) => r.json()).then((c) => { state.credits = c; }).catch(() => {}),
       fetch(CONFIG.data.borders).then((r) => r.json()).then((b) => { state.borders = b; }).catch(() => {}),
       fetch(`${CONFIG.data.regions}index.json`).then((r) => r.json()).then((x) => { state.regionIndex = x; }).catch(() => {}),
     ]);
     state.types = parseTypes(typesCSV);
+    if (!state.types.length) throw fail('E4', 'The Types tab was read, but no row has both a Type ID and centre coordinates, so there is nothing to show.');
     state.byId = new Map(state.types.map((t) => [t.id, t]));
     state.cases = parseCases(casesCSV);
     state.countriesGeo = countries;
@@ -423,10 +461,11 @@ export function createCore(CONFIG, V) {
     if (namesCSV) parseNames(namesCSV);
     computeCountryBoxes(countries);
     computeDotPositions();
+    checkCodes();
     return countries;
   }
 
   return {
-    state, esc, splitList, resolveColumns, loadCSV, parseTypes, parseNames, pointInRing, pointInCountry, nameDot, nameIn, nameIndexFor, displayName, parseCases, computeCountryBoxes, union, inferredGaps, isRegion, countriesOf, regionsOf, expandIso, regionCountry, loadRegionFile, regionFeatures, featureBox, fitCountries, boxesFor, boundsFor, visibleTypes, rawDots, DOT_GAP, dotPositions, computeDotPositions, isStandout, latLon, gapsFor, renderType, addCredit, emptySlot, loadImage, loadData,
+    state, esc, splitList, resolveColumns, loadCSV, parseTypes, parseNames, pointInRing, pointInCountry, nameDot, nameIn, nameIndexFor, displayName, parseCases, computeCountryBoxes, union, inferredGaps, isRegion, countriesOf, regionsOf, expandIso, regionCountry, loadRegionFile, regionFeatures, featureBox, fitCountries, boxesFor, boundsFor, visibleTypes, rawDots, DOT_GAP, dotPositions, computeDotPositions, isStandout, latLon, gapsFor, renderType, addCredit, emptySlot, loadImage, loadData, fail,
   };
 }

@@ -47,7 +47,15 @@ Styles.reveal();
 
 // ── Data ───────────────────────────────────────────────────
 $('p-info').textContent = 'Loading data…';
-const countries = await core.loadData();
+let countries;
+try { countries = await core.loadData(); } catch (err) { $('p-info').textContent = 'not loaded'; throw err; } // shown by atlasFail
+// Things in the sheet that could not be used (renamed columns, unknown area codes…).
+if (state.problems.length) {
+  const box = $('p-problems');
+  box.hidden = false;
+  box.innerHTML = `<summary>${state.problems.length} problem${state.problems.length > 1 ? 's' : ''} in the sheet</summary>
+    <ul>${state.problems.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>`;
+}
 try { state.imageIndex = await (await fetch(`${CONFIG.data.images}?t=${Date.now()}`, { cache: 'no-store' })).json(); } catch { state.imageIndex = null; }
 state.images = state.imageIndex ? new Set(Object.keys(state.imageIndex)) : null;
 
@@ -351,7 +359,7 @@ async function build() {
     s.style.width = `${w}mm`; s.style.height = `${h}mm`; s.style.padding = `${P.margin}mm`;
     const date = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
     s.innerHTML = `<header class="sheet-head" style="height:${P.header}mm"><span class="sheet-title">${esc(P.title)}</span>
-      <span>${types.length} types${result.length > 1 ? ` · sheet ${i + 1} of ${result.length}` : ''} · ${esc(date)}</span></header>
+      <span>${types.length} hearths${result.length > 1 ? ` · sheet ${i + 1} of ${result.length}` : ''} · ${esc(date)}</span></header>
       <div class="sheet-cols"></div>`;
     const colsEl = s.querySelector('.sheet-cols');
     for (const c of sheet.columns) {

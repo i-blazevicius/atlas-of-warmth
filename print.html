@@ -6,33 +6,8 @@
   <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Atlas of Warmth · print</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,300..700;1,300..700&family=Noto+Sans+Display:wght@400..700&family=Noto+Sans+Armenian&family=Noto+Sans+Georgian&family=Noto+Sans+Gurmukhi&family=Noto+Sans+Devanagari&family=Noto+Sans+Arabic&family=Noto+Sans+Canadian+Aboriginal&display=swap" rel="stylesheet">
-  <!-- Put the last-used style on straight away and keep the page hidden until the style and its fonts
-       have loaded (js/styles.js → reveal), so the built-in look never flashes up first. -->
-  <script>
-    (function () {
-      var html = document.documentElement;
-      html.classList.add('styling');
-      setTimeout(function () { html.classList.remove('styling'); }, 4000); // never stay hidden
-      try {
-        var c = JSON.parse(localStorage.getItem('atlas-of-warmth-style-cache'));
-        if (!c) return;
-        for (var k in c.vars) html.style.setProperty(k, c.vars[k]);
-        (c.fonts || []).forEach(function (f) {
-          if (f.google) document.write('<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=' + f.google + '&display=swap">');
-          else if (f.file) document.write('<style>@font-face { font-family: \'' + f.family + '\'; src: url(\'' + f.file + '\'); font-weight: 100 900; }</style>');
-        });
-      } catch (e) {}
-    })();
-  </script>
-  <link rel="stylesheet" href="css/style.css" id="main-css">
-  <link rel="stylesheet" href="css/print.css" id="print-css">
-  <script>
-    document.getElementById("main-css").href = "css/style.css?v=" + Date.now();
-    document.getElementById("print-css").href = "css/print.css?v=" + Date.now();
-  </script>
+  <!-- Fonts, the last-used style (page hidden until it is on), the stylesheets and the error box: js/head.js -->
+  <script src="js/head.js" data-css="css/style.css css/print.css"></script>
   <script src="lib/papaparse.min.js"></script>
 </head>
 <body class="print-page">
@@ -51,13 +26,15 @@
       <option>A4</option><option>A3</option><option>A2</option><option>A1</option><option>A0</option>
     </select></label>
     <label>Card width <input type="number" id="p-width" min="40" max="200" step="1"> mm</label>
-    <label class="check"><input type="checkbox" id="p-images"> Only types with images</label>
+    <label class="check"><input type="checkbox" id="p-images"> Only hearths with images</label>
     <label class="check"><input type="checkbox" id="p-empty"> Frame for missing images</label>
     <span class="print-info" id="p-info">loading…</span>
+    <details class="problems" id="p-problems" hidden></details>
     <button type="button" id="p-print">Print / save as PDF</button>
   </header>
   <main id="sheets" class="sheets"></main>
 
-  <script type="module">import(`./js/print.js?v=${Date.now()}`);</script>
+  <!-- Loads js/config.js and js/print.js fresh on every visit (js/head.js). -->
+  <script>atlasStart('print');</script>
 </body>
 </html>

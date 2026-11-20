@@ -10,6 +10,10 @@ const CONFIG = (await import(`./config.js${new URL(import.meta.url).search}`)).d
   S.reveal();
 }
 
+// Reading the sheet (with the same error codes as the map) is shared with the map: js/core.js.
+const { createCore } = await import(`./core.js${new URL(import.meta.url).search}`);
+const core = createCore(CONFIG, {});
+
 const $ = (id) => document.getElementById(id);
 const GH = CONFIG.github;
 const UP = CONFIG.imageUpload;
@@ -60,9 +64,10 @@ window.addEventListener('beforeunload', (e) => {
   if (state.pending || document.querySelector('.up-credit-edit:not([hidden])')) { e.preventDefault(); e.returnValue = ''; }
 });
 
-function message(text) {
+// persist: stays until replaced (for problems the user has to act on).
+function message(text, persist = false) {
   const m = $('message'); m.textContent = text; m.hidden = !text;
-  if (text) setTimeout(() => { if (m.textContent === text) m.hidden = true; }, 5000);
+  if (text && !persist) setTimeout(() => { if (m.textContent === text) m.hidden = true; }, 5000);
 }
 
 // ── GitHub ─────────────────────────────────────────────────
@@ -70,6 +75,7 @@ async function gh(path, opts = {}) {
   const headers = { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
   if (state.token) headers.Authorization = `Bearer ${state.token}`;
   const res = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}${path}`, { ...opts, headers: { ...headers, ...opts.headers } });
+  if (res.status === 401 && state.token) tokenRejected();
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(`${res.status} ${body.message ?? res.statusText}`);
@@ -89,6 +95,24 @@ async function loadExisting() {
     }
   } catch (err) {
     console.warn('Could not list images:', err);
+  }
+}
+
+// GitHub refused the token (expired, revoked or mistyped): forget it and say so until a new one is added.
+function tokenRejected() {
+  state.token = null;
+  setToken(null);
+  showConnected(false);
+  message('The saved GitHub token no longer works: it has probably expired or been revoked. ' +
+    'Make a new one (see "How to make a token" above) and paste it in; until then nothing can be saved to the site.', true);
+}
+// Check a saved token when the page opens, before anything relies on it.
+async function checkToken() {
+  try {
+    const repo = await gh('');
+    if (!repo.permissions?.push) message('The saved GitHub token can read the repository but not write to it: images cannot be saved. Make a token with "Contents: Read and write".', true);
+  } catch (err) {
+    if (state.token) message(`Could not check the GitHub token (${err.message}). Saving may not work.`, true); // 401 is handled in gh()
   }
 }
 
@@ -411,9 +435,9 @@ function findCol(headers, label) {
 }
 
 async function loadTypes() {
-  const text = await (await fetch(CONFIG.data.types, { cache: 'no-store' })).text();
-  const { data, meta } = Papa.parse(text, { header: true, skipEmptyLines: 'greedy' });
-  const c = Object.fromEntries(['id', 'family', 'name', 'translit', 'native', 'search', 'cases'].map((k) => [k, findCol(meta.fields, CONFIG.typeColumns[k])]));
+  const { rows: data, headers } = await core.loadCSV(CONFIG.data.types, 'Types');
+  const c = Object.fromEntries(['id', 'family', 'name', 'translit', 'native', 'search', 'cases'].map((k) => [k, findCol(headers, CONFIG.typeColumns[k])]));
+  if (!c.id) { const e = new Error(`The Types tab has no "${CONFIG.typeColumns.id}" column. Check the header row of the sheet, or typeColumns in js/config.js.`); e.code = 'E4'; throw e; }
   const v = (r, k) => (c[k] ? String(r[c[k]] ?? '').trim() : '');
   state.types = data
     .map((r) => ({ id: v(r, 'id'), family: v(r, 'family'), name: v(r, 'name'), translit: v(r, 'translit'), native: v(r, 'native'), search: v(r, 'search'),
@@ -422,24 +446,30 @@ async function loadTypes() {
   // Local names from the Names tab: extra search words (another language may find what one does not).
   if (!CONFIG.data.names) return;
   try {
-    const names = Papa.parse(await (await fetch(CONFIG.data.names, { cache: 'no-store' })).text(), { header: true, skipEmptyLines: 'greedy' });
-    const n = Object.fromEntries(['type', 'name', 'native', 'language'].map((k) => [k, findCol(names.meta.fields, CONFIG.nameColumns[k])]));
+    const names = await core.loadCSV(CONFIG.data.names, 'Names');
+    const n = Object.fromEntries(['type', 'name', 'native', 'language'].map((k) => [k, findCol(names.headers, CONFIG.nameColumns[k])]));
     const g = (r, k) => (n[k] ? String(r[n[k]] ?? '').trim() : '');
     const byId = new Map(state.types.map((t) => [t.id, t]));
-    for (const r of names.data) {
+    for (const r of names.rows) {
       const t = byId.get(g(r, 'type'));
       if (t && g(r, 'name')) (t.names ??= []).push({ name: g(r, 'name'), native: g(r, 'native'), language: g(r, 'language') });
     }
   } catch (err) { console.warn('Names not loaded:', err); }
 }
 
-function render() {
+// The list is built once; searching and the "without an image" box only hide rows, so open searches,
+// typed credits and saving progress in other rows are kept.
+function applyFilter() {
   const q = $('search').value.trim().toLowerCase();
   const missingOnly = $('missing-only').checked;
-  const items = state.types.filter((t) =>
-    (!q || `${t.id} ${t.name} ${t.translit} ${t.family}`.toLowerCase().includes(q)) &&
-    (!missingOnly || !state.existing.has(t.id)));
-  $('list').innerHTML = items.map((t) => {
+  for (const li of $('list').children) {
+    const t = state.types.find((x) => x.id === li.dataset.id);
+    li.hidden = !t || !((!q || `${t.id} ${t.name} ${t.translit} ${t.family}`.toLowerCase().includes(q)) &&
+      (!missingOnly || !state.existing.has(t.id)));
+  }
+}
+function render() {
+  $('list').innerHTML = state.types.map((t) => {
     const file = state.existing.get(t.id)?.[0];
     return `<li class="up-item" data-id="${esc(t.id)}">
       <div class="up-main">
@@ -461,6 +491,7 @@ function render() {
       <input type="file" accept="image/*">
     </li>`;
   }).join('');
+  applyFilter();
 }
 
 const imageButtons = () => '<button type="button" class="up-edit-credit">edit credit</button><button type="button" class="up-remove">remove</button>';
@@ -725,16 +756,16 @@ list.addEventListener('keydown', (e) => {
 window.addEventListener('dragover', (e) => e.preventDefault());
 window.addEventListener('drop', (e) => e.preventDefault());
 
-$('search').addEventListener('input', render);
-$('missing-only').addEventListener('change', render);
+$('search').addEventListener('input', applyFilter);
+$('missing-only').addEventListener('change', applyFilter);
 $('connect-btn').addEventListener('click', () => { const t = $('token').value.trim(); if (t) connect(t); });
 $('token').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('connect-btn').click(); });
 $('disconnect').addEventListener('click', () => { setToken(null); state.token = null; showConnected(false); });
 
 (async () => {
   const saved = getToken();
-  if (saved) { state.token = saved; showConnected(true); }
-  try { await loadTypes(); } catch (err) { $('summary').textContent = 'Could not load the Types sheet.'; console.error(err); return; }
+  if (saved) { state.token = saved; showConnected(true); await checkToken(); }
+  try { await loadTypes(); } catch (err) { $('summary').textContent = 'not loaded'; window.atlasFail(err); return; }
   await Promise.all([loadExisting(), loadCredits()]);
   updateSummary();
   render();

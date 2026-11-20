@@ -1,7 +1,9 @@
 // ─────────────────────────────────────────────────────────────
 //  Atlas of Warmth — settings
 //  Everything you are likely to want to change lives in this file.
-//  Panel and control styling (fonts, sizes, panel colours) lives in css/style.css.
+//  Fonts and colours of the page and map come from the style versions in data/styles.json
+//  (edited with the style panel, see stylePanel below); css/style.css holds the built-in values.
+//  If the map stops loading after an edit here, it shows error E1: undo the last change on GitHub.
 // ─────────────────────────────────────────────────────────────
 
 export default {
@@ -11,20 +13,22 @@ export default {
   data: {
     types: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSisp-A30FUq5SYzZc99_S1lDcQU7IEPai58C95VTVTsYEZvuOvC-r0hoLQwF9Y3aenVgKruYcGKvf3/pub?gid=1467989397&single=true&output=csv',
     cases: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSisp-A30FUq5SYzZc99_S1lDcQU7IEPai58C95VTVTsYEZvuOvC-r0hoLQwF9Y3aenVgKruYcGKvf3/pub?gid=207720304&single=true&output=csv',
-    names: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSisp-A30FUq5SYzZc99_S1lDcQU7IEPai58C95VTVTsYEZvuOvC-r0hoLQwF9Y3aenVgKruYcGKvf3/pub?gid=777001&single=true&output=csv',                         // published CSV of the Names tab (local names per type and place)
+    // Names tab: local names per type and place.
+    names: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSisp-A30FUq5SYzZc99_S1lDcQU7IEPai58C95VTVTsYEZvuOvC-r0hoLQwF9Y3aenVgKruYcGKvf3/pub?gid=777001&single=true&output=csv',
     countries: 'data/countries.geojson',
     labels: 'data/labels.json',        // a point inside every country and region, for placing name dots
     ocean: 'data/ocean.geojson',       // only drawn over the climate underlay, to keep coastlines crisp
     styles: 'data/styles.json',        // style versions (fonts and colours), edited with the style panel
-    borders: 'data/borders.json',
+    borders: 'data/borders.json',      // land-border lengths between neighbours, used for inferred gaps
     credits: 'data/credits.json',      // image credits, written by the upload page
     images: 'data/images.json',        // image file names and sizes, written by the upload page
-    regions: 'data/regions/',          // region shapes per country (US-CA, IT-88 …), see tools/build_regions.py      // land-border lengths between neighbours, used for inferred gaps
+    regions: 'data/regions/',          // region shapes per country (US-CA, IT-88 …), see tools/build_regions.py
   },
 
   // Column headers in the sheet. If you rename a column, change it here.
   // Matching ignores upper/lower case, and a header that merely starts with
   // the text below also counts (so "Core countries" finds "Core countries (ISO3, confirmed)").
+  // A column that cannot be found is listed under the hearth count on the map.
   typeColumns: {
     id: 'Type ID',
     family: 'Family',
@@ -70,7 +74,7 @@ export default {
     lon: 'Longitude',
   },
   // Case columns never shown in the story panel (the rest are listed under the story).
-  caseHiddenColumns: ['ID', 'Case name', 'Story', 'Type ID', 'Search phrase', 'Match basis', 'Latitude', 'Longitude',
+  caseHiddenColumns: ['ID', 'Case name', 'Story', 'Search phrase', 'Match basis', 'Latitude', 'Longitude',
     'Place', 'Period', 'Author', 'Main terms', 'Primary uses', 'Secondary uses', 'Tags', 'Source kinds'],
 
   // Images live in /images, named after the type ID, e.g. images/T014.jpg
@@ -120,10 +124,8 @@ export default {
     title: 'Atlas of Warmth',
   },
 
-  // Experiments (both off). Can also be tried for one visit from the address bar:
-  //   …/atlas-of-warmth/?cards=float      …/atlas-of-warmth/?flat=equalearth
-  cards: 'panel',            // 'panel' = one card docked on the right; 'float' = up to maxCards cards beside their dots
-  maxCards: 5,
+  // Experiment (off): Equal Earth for the flat map. Can also be tried for one visit from the address bar:
+  //   …/atlas-of-warmth/?flat=equalearth
   flatProjection: 'mercator', // 'mercator' or 'equalEarth' for the flat map
 
   // How the map starts and behaves.
@@ -143,12 +145,13 @@ export default {
     smallAreaMaxZoom: 7,
     // Countries too big to zoom out for: still shaded, but ignored when deciding whether to zoom.
     // (Their regions, e.g. RU-SAK, still count.)
-    onlyImages: true,        // start with 'Only types with images' ticked (types without a picture hidden)
-    onlyStories: false,      // start with 'Only types with stories' ticked
     fitIgnore: ['RUS'],
+    onlyImages: true,        // start with 'Only hearths with images' ticked (hearths without a picture hidden)
+    onlyStories: false,      // start with 'Only hearths with stories' ticked
   },
 
-  // Map colours. Any CSS colour works.
+  // Built-in map colours, used where the style version (data/styles.json) does not set one.
+  // Any CSS colour works.
   theme: {
     space: '#0d0c0b',        // behind the globe (also set in style.css as --space)
     ocean: '#171513',
@@ -158,14 +161,13 @@ export default {
     graticule: '#2a2622',
     point: '#f4e9dc',        // dots (off-white reads on both climate palettes)
     pointStroke: '#0d0c0b',
-    pointRadius: 6.5,       // dot size; clicks also register a few pixels around it
-    selectedRing: '#f4e9dc',
-    activeDot: '#f52261',    // the open type's dots and the selected dot's ring (backup theme: '#e8662a')
+    pointRadius: 6.5,        // dot size; clicks also register a few pixels around it
+                             // (the open hearth's dots take the accent colour of the style version)
     countryOutline: '#a39888',  // outline of a clicked country
     countryOutlineWidth: 2.4,
     core: '#8a8177',         // shading of the selected type's area (earlier: #b8aea2)
     coreOpacity: 0.6,
-    fringe: '#a39888',       // hatching of less prevalent / likely areas (earlier: #d8cfc3)       // fringe countries get diagonal hatching in this colour
+    fringe: '#a39888',       // diagonal hatching of less prevalent / likely areas (earlier: #d8cfc3)
     fringeOpacity: 0.9,
     coreLine: '#d8cfc3',     // outline round the selected type's area
     areaOutline: 1.6,        // outline round the selected type's area (fringe gets a thinner dashed one)
@@ -191,5 +193,6 @@ export default {
     XKX: ['KOS'],            // Kosovo
     SOM: ['SOM', 'SOL'],     // Somalia incl. Somaliland
     CYP: ['CYP', 'CYN'],     // Cyprus incl. the north
+    TKL: [],                 // Tokelau: too small for the map's country shapes, so not shaded (no error shown)
   },
 };

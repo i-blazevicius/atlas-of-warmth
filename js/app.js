@@ -2,14 +2,11 @@ import * as maplibregl from '../lib/maplibre-gl.mjs';
 // config.js is loaded with the same cache-busting query as this file.
 const CONFIG = (await import(`./config.js${new URL(import.meta.url).search}`)).default;
 
-// Address-bar overrides for the experiments: ?cards=float, ?flat=equalearth (or =mercator / =panel).
+// Address-bar override for the experiment: ?flat=equalearth (or =mercator).
 {
   const q = new URLSearchParams(location.search);
-  if (q.get('cards')) CONFIG.cards = q.get('cards');
   if (q.get('flat')) CONFIG.flatProjection = /equal/i.test(q.get('flat')) ? 'equalEarth' : 'mercator';
 }
-const FLOAT = CONFIG.cards === 'float';
-if (FLOAT) document.body.classList.add('float-cards');
 
 // ── Equal Earth on the flat map (experiment) ───────────────
 // MapLibre only draws Web Mercator, so every coordinate is moved to where Equal Earth would put it and
@@ -79,7 +76,8 @@ function boxToMap([w, s, e, n]) {
   return [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];
 }
 
-const T = CONFIG.theme;
+// Map colours: the built-in ones (CONFIG.theme, left untouched) with the style version's on top.
+const T = { ...CONFIG.theme };
 const V = { ...CONFIG.view };
 
 // Style version (fonts and colours) from data/styles.json, applied before anything is drawn. See js/styles.js.
@@ -90,16 +88,17 @@ const startStyle = Styles.startingStyle(styleLib.lib, CONFIG);
 if (startStyle) {
   Styles.applyCss(startStyle, styleLib.lib.fonts, { remember: true });
   for (const [k, v] of Object.entries(Styles.mapColours(startStyle))) if (v) T[k] = v;
-  if (T.core) document.documentElement.style.setProperty('--area', T.core);
-  if (T.fringe) document.documentElement.style.setProperty('--hatch', T.fringe);
 }
+document.documentElement.style.setProperty('--area', T.core);
+document.documentElement.style.setProperty('--hatch', T.fringe);
 Styles.reveal();
 const $ = (id) => document.getElementById(id);
 
 // Data, parsing and the type card are shared with the print page: js/core.js.
 const core = createCore(CONFIG, V);
 const {
-  state, esc, splitList, resolveColumns, loadCSV, parseTypes, parseNames, pointInRing, pointInCountry, nameDot, nameIn, nameIndexFor, displayName, parseCases, computeCountryBoxes, union, inferredGaps, isRegion, countriesOf, regionsOf, expandIso, regionCountry, loadRegionFile, regionFeatures, featureBox, fitCountries, boxesFor, boundsFor, visibleTypes, rawDots, DOT_GAP, dotPositions, computeDotPositions, isStandout, latLon, gapsFor, addCredit, emptySlot, loadImage, loadData,
+  state, esc, nameDot, nameIndexFor, displayName, expandIso, regionsOf, countriesOf, regionCountry, regionFeatures,
+  boxesFor, boundsFor, visibleTypes, rawDots, dotPositions, isStandout, latLon, gapsFor, loadData,
 } = core;
 
 function showMessage(text, persist = false) {
@@ -153,13 +152,21 @@ function graticule(step = 20) {
   return { type: 'Feature', properties: {}, geometry: { type: 'MultiLineString', coordinates: lines } };
 }
 
+// Any CSS colour (#hex, rgb(), a name…) as [red, green, blue], read back from a 1-pixel canvas.
+function rgbOf(color) {
+  const c = document.createElement('canvas').getContext('2d');
+  c.fillStyle = '#000'; c.fillStyle = color;
+  c.fillRect(0, 0, 1, 1);
+  return [...c.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+}
+
 // Diagonal hatching drawn pixel by pixel (no anti-aliased edges), so tiles join without seams.
 // Drawn at 2× and registered with pixelRatio 2 so the lines stay crisp.
 const HATCH = { spacing: 6, width: 1.5, ratio: 2 };   // in screen pixels
 function hatchImage(color, opacity) {
   const step = HATCH.spacing * HATCH.ratio, w = Math.round(HATCH.width * HATCH.ratio);
   const size = step * 4;
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
+  const [r, g, b] = rgbOf(color);
   const data = new Uint8ClampedArray(size * size * 4);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
@@ -227,10 +234,6 @@ function redrawGeometry() {
   map.getSource('regions').setData(toMap(state.regionsGeo));
   for (const name of Object.keys(CONFIG.climate.layers)) map.getSource(`climate-${name}`).updateImage(climateImage(name));
   refreshDots();
-  for (const c of cards) {
-    const t = state.byId.get(c.id);
-    c.marker.setLngLat(mapCoords(dotPositions.get(`${c.id}:${c.n}`) ?? [t.lon, t.lat]));
-  }
 }
 
 map.dragRotate.disable();
@@ -329,7 +332,7 @@ function updateClusters() {
       el.className = 'cluster';
       el.textContent = p.point_count;
       el.style.setProperty('--size', `${Math.round(21 + Math.sqrt(p.point_count) * 4.4)}px`);
-      el.setAttribute('aria-label', `${p.point_count} types, zoom in`);
+      el.setAttribute('aria-label', `${p.point_count} hearths, zoom in`);
       const coords = f.geometry.coordinates;
       el.addEventListener('click', (e) => { e.stopPropagation(); openCluster(key, coords); });
       marker = new maplibregl.Marker({ element: el, opacityWhenCovered: 0 }).setLngLat(coords);
@@ -397,7 +400,7 @@ function setArea(core, fringe) {
 // Styled in CSS: .dot-selected, and .dot-selected.active for the one whose name is shown.
 let selectedMarkers = [];
 let standoutMarkers = [];   // stand-out types (T000), also drawn above the clusters
-function markDots(id, n) {
+function markDots(n) {
   for (const m of selectedMarkers) m.getElement().classList.toggle('active', Number(m.getElement().dataset.n) === n);
 }
 // Rebuild the clustered dots and the open type's dots (after the open type changes).
@@ -430,13 +433,10 @@ async function switchName(i, { fly = true } = {}) {
   const type = state.byId.get(state.selected);
   if (!type || !type.names[i]) return;
   state.nameIndex = i;
-  markDots(type.id, i);
-  if (FLOAT) showCard(type, i);
-  else {
-    const scroll = $('panel-body').scrollTop;
-    renderType(type, i);
-    $('panel-body').scrollTop = scroll;
-  }
+  markDots(i);
+  const scroll = $('panel-body').scrollTop;
+  renderType(type, i);
+  $('panel-body').scrollTop = scroll;
   if (!fly || V.onClick !== 'fit') return;
   const n = type.names[i];
   const id = type.id;
@@ -451,19 +451,17 @@ async function select(id, { fly = true, name = null } = {}) {
   const type = state.byId.get(id);
   if (!type) return;
   // Clicking another dot (or name) of the type that is already open just switches names.
-  const open = FLOAT ? !!cardFor(id) : !$('panel').hidden;
-  if (state.selected === id && name !== null && name >= 0 && open) { switchName(name, { fly }); return; }
+  if (state.selected === id && name !== null && name >= 0 && !$('panel').hidden) { switchName(name, { fly }); return; }
   state.selected = id;
   state.nameIndex = name ?? (type.names.length ? 0 : -1);
   state.country = null;
   map.setFilter('country-selected', ['in', ['get', 'iso'], ['literal', []]]);
   setArea(expandIso(type.core), [...expandIso(type.fringe), ...gapsFor(type)]);
   refreshDots();
-  markDots(id, state.nameIndex);
+  markDots(state.nameIndex);
   state.regionsGeo = { type: 'FeatureCollection', features: [] };
   map.getSource('regions').setData(state.regionsGeo);
-  if (FLOAT) { $('panel').hidden = true; showCard(type, state.nameIndex); }
-  else renderType(type, state.nameIndex);
+  renderType(type, state.nameIndex);
   closeStory();
   history.replaceState(null, '', `#${id}`);
 
@@ -475,7 +473,6 @@ async function select(id, { fly = true, name = null } = {}) {
   state.regionsGeo = { type: 'FeatureCollection', features: regions };
   map.getSource('regions').setData(toMap(state.regionsGeo));
   if (fly && V.onClick === 'fit') {
-    const n = type.names[state.nameIndex];
     fitIfNeeded(boundsFor(type, regions), boxesFor(type, regions), dotPositions.get(`${type.id}:${state.nameIndex}`) ?? [type.lon, type.lat]);
   }
 }
@@ -489,7 +486,7 @@ function fitIfNeeded(bounds, boxes = [], dot = null) {
   const narrow = window.innerWidth < 760;
   const padding = narrow
     ? { top: 40, bottom: window.innerHeight * 0.62 + 20, left: 40, right: 40 }
-    : { top: 60, bottom: 60, left: 280, right: (FLOAT ? 0 : panel.width) + 60 };
+    : { top: 60, bottom: 60, left: 280, right: panel.width + 60 };
   // Equal Earth: work with where things are drawn, not their real coordinates.
   if (eeOn) {
     const [w, s, e, n] = boxToMap([bounds[0][0], bounds[0][1], bounds[1][0], bounds[1][1]]);
@@ -551,7 +548,6 @@ function clearSelection() {
   map.getSource('regions').setData(state.regionsGeo);
   if (map.getSource('types')) refreshDots();
   $('panel').hidden = true;
-  if (FLOAT) closeAllCards();
   closeStory();
   history.replaceState(null, '', location.pathname + location.search);
 }
@@ -561,75 +557,6 @@ function renderType(t, nameIndex = -1, body = $('panel-body')) {
   if (body === $('panel-body')) { $('panel').hidden = false; body.scrollTop = 0; }
 }
 
-// ── Floating cards (CONFIG.cards = 'float') ────────────────
-// Each open type gets a small card beside its dot; up to CONFIG.maxCards at once. Opening one more
-// closes the oldest, and a card closes when its dot leaves the screen. The newest/clicked card is the
-// "current" type: its area is shaded and its dots coloured.
-const cards = [];   // { id, n, marker, el }
-function cardFor(id) { return cards.find((c) => c.id === id); }
-function showCard(t, n) {
-  let card = cardFor(t.id);
-  if (!card) {
-    const el = document.createElement('div');
-    el.className = 'card';
-    el.innerHTML = `<button type="button" class="close" data-close-card aria-label="Close">×</button><div class="card-body"></div>`;
-    el.dataset.type = t.id;
-    // Keep map gestures and clicks from passing through a card to the map; handle its clicks here.
-    for (const ev of ['mousedown', 'mouseup', 'pointerdown', 'pointerup', 'touchstart', 'touchend', 'wheel', 'dblclick']) {
-      el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
-    }
-    el.addEventListener('click', (e) => { e.stopPropagation(); onClick(e); });
-    const wrap = document.createElement('div');
-    wrap.className = 'card-anchor';
-    wrap.append(el);
-    card = { id: t.id, n, el, marker: null };
-    card.marker = new maplibregl.Marker({ element: wrap, anchor: 'left' }).setLngLat([0, 0]).addTo(map);
-    cards.push(card);
-    while (cards.length > (CONFIG.maxCards ?? 5)) closeCard(cards[0]);
-  } else {
-    cards.splice(cards.indexOf(card), 1); cards.push(card); // newest last
-  }
-  card.n = n;
-  renderType(t, n, card.el.querySelector('.card-body'));
-  const pt = map.project(mapCoords(dotPositions.get(`${t.id}:${n}`) ?? [t.lon, t.lat]));
-  const right = pt.x < map.getCanvas().clientWidth * 0.62;
-  const down = pt.y < map.getCanvas().clientHeight * 0.5;
-  card.marker.remove();
-  // Hang the card from the dot's corner, towards the side (and up or down) with more room.
-  const anchor = `${down ? 'top' : 'bottom'}-${right ? 'left' : 'right'}`;
-  card.marker = new maplibregl.Marker({ element: card.marker.getElement(), anchor, offset: [right ? 14 : -14, down ? -14 : 14] })
-    .setLngLat(mapCoords(dotPositions.get(`${t.id}:${n}`) ?? [t.lon, t.lat])).addTo(map);
-  // The current card on top, older ones below in order.
-  cards.forEach((c, i) => {
-    c.el.classList.toggle('current', c === card);
-    c.marker.getElement().style.zIndex = c === card ? 20 : 10 + i;
-  });
-}
-function closeCard(card, { reselect = true } = {}) {
-  const i = cards.indexOf(card);
-  if (i < 0) return;
-  cards.splice(i, 1);
-  card.marker.remove();
-  if (state.selected === card.id) {
-    const next = cards[cards.length - 1];
-    if (next && reselect) select(next.id, { name: next.n, fly: false });
-    else clearSelection();
-  }
-}
-function closeAllCards() { while (cards.length) { const c = cards.pop(); c.marker.remove(); } }
-// Close cards whose dot has left the screen (or gone round the back of the globe).
-function pruneCards() {
-  if (!cards.length) return;
-  const w = map.getCanvas().clientWidth, h = map.getCanvas().clientHeight;
-  for (const c of [...cards]) {
-    const ll = c.marker.getLngLat();
-    const p = map.project(ll);
-    const off = p.x < 0 || p.y < 0 || p.x > w || p.y > h || map.transform?.isLocationOccluded?.(ll);
-    if (off) closeCard(c);
-  }
-}
-
-// Try images/T014.jpg, .jpeg, .png, .webp in turn.
 // items: [type, nameIndex] pairs; the local name is shown, with the type's own name small below.
 const typeItems = (items) => `<ul class="type-list">${items.map(([t, i]) => {
   const shown = displayName(t, i);
@@ -638,28 +565,31 @@ const typeItems = (items) => `<ul class="type-list">${items.map(([t, i]) => {
 
 function showList(items) {
   if (state.selected) clearSelection();
-  $('panel-body').innerHTML = `<p class="list-title">${items.length} types in this spot</p>${typeItems(items)}`;
+  $('panel-body').innerHTML = `<p class="list-title">${items.length} hearths in this spot</p>${typeItems(items)}`;
   $('panel').hidden = false;
 }
 
-// Click on a country (or a region inside it): list every type found there.
+// Click on a country (or a region inside it): list the hearths found there that the filters let through.
 function showCountry(iso, name) {
   clearSelection();
   state.country = iso;
   map.setFilter('country-selected', ['==', ['get', 'iso'], iso]);
   const inCodes = (codes) => expandIso(codes).includes(iso) || regionsOf(codes).some((c) => regionCountry(c) === iso);
+  const shown = new Set(visibleTypes());
   const wide = [], less = [];
+  let hidden = 0;
   for (const t of state.types) {
-    const item = [t, nameIndexFor(t, iso)];
-    if (inCodes(t.core)) wide.push(item);
-    else if (inCodes(t.fringe) || gapsFor(t).includes(iso)) less.push(item);
+    const where = inCodes(t.core) ? wide : inCodes(t.fringe) || gapsFor(t).includes(iso) ? less : null;
+    if (!where) continue;
+    if (shown.has(t)) where.push([t, nameIndexFor(t, iso)]); else hidden++;
   }
   const section = (title, list) => (list.length ? `<p class="list-title">${title}</p>${typeItems(list)}` : '');
   $('panel-body').innerHTML = `
     <h1 class="story-title">${esc(name)}</h1>
     ${section('Widely used', wide)}
     ${section('Less prevalent / likely', less)}
-    ${!wide.length && !less.length ? '<p class="meta">No types recorded here yet.</p>' : ''}`;
+    ${!wide.length && !less.length && !hidden ? '<p class="meta">No hearths recorded here yet.</p>' : ''}
+    ${hidden ? `<p class="meta">${hidden} more hidden by the filters.</p>` : ''}`;
   $('panel').hidden = false;
   $('panel-body').scrollTop = 0;
 }
@@ -720,20 +650,19 @@ function syncControls() {
 }
 function updateCount() {
   const shown = visibleTypes().length;
-  $('count').textContent = shown === state.types.length ? `${shown} types` : `${shown} of ${state.types.length} types`;
+  $('count').textContent = shown === state.types.length ? `${shown} hearths` : `${shown} of ${state.types.length} hearths`;
+}
+// Things in the sheet the map could not use (renamed columns, unknown area codes…), under the count.
+function showProblems() {
+  const box = $('problems');
+  const list = state.problems;
+  box.hidden = !list.length;
+  if (!list.length) return;
+  box.innerHTML = `<summary>${list.length} problem${list.length > 1 ? 's' : ''} in the sheet</summary>
+    <ul>${list.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>`;
 }
 
-document.addEventListener('click', (e) => onClick(e));
-function onClick(e) {
-  const cardEl = e.target.closest('.card');
-  if (cardEl) {
-    const card = cardFor(cardEl.dataset.type);
-    if (e.target.closest('[data-close-card]')) { closeCard(card); return; }
-    if (card && state.selected !== card.id) {
-      select(card.id, { name: card.n, fly: false });
-      if (!e.target.closest('button')) return;
-    }
-  }
+document.addEventListener('click', (e) => {
   const t = e.target.closest('button');
   if (!t) return;
   if (t.dataset.projection) { V.projection = t.dataset.projection; applyProjection(); syncControls(); }
@@ -744,7 +673,7 @@ function onClick(e) {
   if (t.dataset.name !== undefined && state.selected) switchName(Number(t.dataset.name));
   if (t.dataset.close === 'panel') clearSelection();
   if (t.dataset.close === 'story') closeStory();
-}
+});
 function refilter() {
   refreshDots();
   updateCount();
@@ -755,9 +684,10 @@ state.onlyImages = !!V.onlyImages; $('filter-images').checked = state.onlyImages
 state.onlyStories = !!V.onlyStories; $('filter-stories').checked = state.onlyStories;
 $('filter-images').addEventListener('change', (e) => { state.onlyImages = e.target.checked; refilter(); });
 
-// Which types have an image: list the repository's images folder (GitHub API, no login needed).
+// Which types have an image: the image index written by the upload page (data/images.json), which
+// also gives each image's size. If it cannot be read, list the repository's images folder instead
+// (GitHub API, no login needed, but limited to 60 requests an hour per visitor).
 async function loadImageList() {
-  // The image index (written by the upload page) lists every image with its size.
   try {
     const r = await fetch(`${CONFIG.data.images}?t=${Date.now()}`, { cache: 'no-store' });
     if (r.ok) {
@@ -800,12 +730,14 @@ async function start() {
       fetch(`${CONFIG.climate.folder}legend.json`).then((r) => r.json()).then((x) => { climate.legend = x; }).catch(() => {}),
     ]);
   } catch (err) {
-    console.error(err);
-    showMessage('Could not load the data. Check the CSV links in js/config.js.', true);
+    $('count').textContent = 'not loaded';
+    showMessage('');
+    window.atlasFail(err);
     return;
   }
   showMessage('');
   updateCount();
+  showProblems();
   await loadImageList(); // before the first dots, as 'Only types with images' may be on from the start
 
   await mapLoaded;
@@ -816,7 +748,6 @@ async function start() {
     refreshDots();
     applyClimate();
     map.on('render', () => { if (map.getSource('types') && map.isSourceLoaded('types')) { updateClusters(); nudgeSelected(); } });
-    if (FLOAT) map.on('moveend', pruneCards);
     for (const layer of ['points-hit']) {
       map.on('click', layer, (e) => {
         const p = e.features[0].properties;

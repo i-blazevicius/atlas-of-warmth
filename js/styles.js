@@ -77,9 +77,21 @@ function hexToRgba(hex, a) {
   return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 }
 
+// Every page setting a version can hold. Settings a version leaves out are reset to the built-in value
+// (css/style.css), so nothing carries over from the version shown before.
+const CSS_KEYS = [
+  '--accent', '--ink', '--ink-dim', '--ink-faint', '--panel-bg', '--panel-line', '--space', '--image-bg', '--node', '--dot-line',
+  '--font-title', '--weight-title', '--title-size', '--style-title',
+  '--font-display', '--weight-display', '--name-size', '--style-display',
+  '--font-body', '--weight-body', '--body-size', '--style-body',
+  '--font-label', '--label-weight', '--label-size', '--style-label', '--label-case', '--label-tracking',
+  '--font-ui',
+  '--font-native', '--weight-native', '--native-size', '--style-native',
+];
 export function applyCss(style, fonts = [], { remember = false } = {}) {
   if (!style) return;
   const root = document.documentElement.style;
+  for (const k of CSS_KEYS) if (!(k in (style.css ?? {}))) root.removeProperty(k);
   const vars = {}, used = [];
   for (const [k, v] of Object.entries(style.css ?? {})) {
     vars[k] = k === '--panel-bg' ? hexToRgba(v, PANEL_ALPHA) : v;
@@ -140,9 +152,11 @@ const NATIVE_TAIL = {
 };
 
 // Map colours of a version, including the dot colours that also live in the page's CSS.
+// Colours the version leaves out are left out here too (the caller fills them from config.js → theme).
 export function mapColours(style) {
   const css = style?.css ?? {};
-  return { ...(style?.map ?? {}), space: css['--space'], point: css['--node'], pointStroke: css['--dot-line'] };
+  const out = { ...(style?.map ?? {}), space: css['--space'], point: css['--node'], pointStroke: css['--dot-line'] };
+  return Object.fromEntries(Object.entries(out).filter(([, v]) => v));
 }
 
 export function initPanel({ CONFIG, lib, sha, current, setMapColours }) {
@@ -181,7 +195,7 @@ export function initPanel({ CONFIG, lib, sha, current, setMapColours }) {
 
   function show(style) {
     applyCss(style, P.lib.fonts, { remember: true });
-    setMapColours(mapColours(style));
+    setMapColours({ ...mapDefaults, ...mapColours(style) }); // unset colours go back to config.js → theme
   }
 
   // ── Rendering ──
@@ -429,6 +443,7 @@ export function initPanel({ CONFIG, lib, sha, current, setMapColours }) {
         method: 'PUT', headers,
         body: JSON.stringify({ message, branch, content: textToBase64(JSON.stringify(body, null, 2) + '\n'), ...(P.sha ? { sha: P.sha } : {}) }),
       });
+      if (r.status === 401) throw new Error('the GitHub token no longer works; add a new one on the upload page');
       if (!r.ok) throw new Error(`${r.status} ${(await r.json().catch(() => ({}))).message ?? ''}`);
       P.sha = (await r.json()).content.sha;
       for (const x of [...P.lib.styles, ...P.lib.fonts]) delete x.local;

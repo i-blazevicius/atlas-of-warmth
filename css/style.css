@@ -9,7 +9,7 @@
   --ink: #f4e9dc;               /* main text */
   --ink-dim: #a39888;           /* secondary text */
   --ink-faint: #6b6157;         /* IDs, coordinates */
-  --accent: #f52261;            /* interface accents (map value: theme.activeDot in config.js) */
+  --accent: #f52261;            /* interface accents, and the open hearth's dots on the map */
   --node: #f4e9dc;              /* map dots and clusters: off-white reads on every climate palette */
   --dot-line: #0d0c0b;          /* outline of dots and clusters */
   --image-bg: #1d1a17;          /* image frame (seen when a type has no image yet) */
@@ -56,6 +56,8 @@ html, body { margin: 0; height: 100%; background: var(--space); color: var(--ink
 html.styling body { visibility: hidden; }   /* until the style version is on (js/styles.js → reveal) */
 body { font-family: var(--font-body); font-weight: var(--weight-body); font-style: var(--style-body); overflow: hidden; }
 #map { position: absolute; inset: 0; }
+/* On wider screens the map is its own layer, so the open hearth's dots stay under the panels. */
+@media (min-width: 761px) { #map { z-index: 0; } }
 button { font: inherit; color: inherit; }
 
 /* ── Control panel ───────────────────────────────────────── */
@@ -249,27 +251,23 @@ button { font: inherit; color: inherit; }
 .story-where { margin-bottom: 16px; }
 .story-where dt:first-child { margin-top: 0; }
 
-/* ── Floating cards (config.js → cards: 'float') ───────────
-   They reuse the panel's inner styles; only the frame and a few sizes differ. */
-.card-anchor { z-index: 5; }
-.card {
-  position: relative; width: 260px; max-height: 44vh; overflow-y: auto;
-  background: var(--panel-bg); border: 1px solid var(--panel-line); border-radius: var(--radius);
-  backdrop-filter: blur(6px); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+/* ── Problems in the sheet (under the count) ─────────────── */
+.problems { margin: -8px 0 14px; color: var(--ink-dim); font-size: 10.5px; }
+.problems[hidden] { display: none; }
+.problems summary { cursor: pointer; color: var(--accent); }
+.problems ul { margin: 6px 0 0; padding: 0 0 0 14px; max-height: 30vh; overflow-y: auto; }
+.problems li { margin-bottom: 4px; line-height: 1.35; }
+
+/* ── Errors that stop a page (js/head.js → atlasFail) ────── */
+.fatal {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 10;
+  width: min(460px, calc(100vw - 32px)); padding: 18px 20px;
+  background: var(--panel-bg, #141210); color: var(--ink, #f4e9dc); border: 1px solid var(--accent, #f52261);
+  font-family: var(--font-ui, sans-serif); font-style: normal; font-size: 13px; line-height: 1.5;
 }
-.card.current { border-color: var(--accent); }
-.card-body { padding: 14px 16px 16px; }
-.card .close { top: 6px; right: 6px; width: 24px; height: 24px; font-size: 18px; }
-.card .type-image { margin: -14px -16px 12px; }
-.card .type-image img { max-height: 160px; object-fit: cover; }
-.card .type-image.empty { aspect-ratio: auto; height: 34px; font-size: 10px; }
-.card .translit { font-size: calc(var(--name-size) * 0.7); padding-right: 22px; }
-.card .family { padding-right: 22px; }
-.card .native { font-size: calc(var(--native-size) * 0.8); }
-.card .type-name, .card .fields dd, .card .stories button { font-size: 13px; }
-.card .also-known button { font-size: 12px; }
-.card .meta { margin-top: 14px; }
-.float-cards .panel.story { right: 16px; }
+.fatal strong { color: var(--accent, #f52261); margin-right: 6px; }
+.fatal p { margin: 0 0 8px; }
+.fatal small { color: var(--ink-faint, #6b6157); }
 
 /* ── Messages (loading / errors) ─────────────────────────── */
 .message {
