@@ -197,23 +197,28 @@ export function createCore(CONFIG, V) {
   }
   const union = (p, q) => [Math.min(p[0], q[0]), Math.min(p[1], q[1]), Math.max(p[2], q[2]), Math.max(p[3], q[3])];
 
-  // Unlisted neighbours whose land border is mostly shared with the listed countries.
-  function inferredGaps(listed) {
+  // Unlisted countries whose land border is mostly shared with the listed areas, and which those areas
+  // surround (see inferGaps in config.js). data/borders.json (built by tools/build_borders.py) gives, per
+  // country and neighbour, [length km, directions, {region: [length, directions]}]: a neighbour listed whole
+  // counts for its whole border; a neighbour listed only through some of its regions counts only for the
+  // stretches those regions touch.
+  // directions: 36 yes/no slots, one per 10° seen from inside the country, packed into one number of up to
+  // 36 binary digits; unpacked by division because JavaScript's bit operators only keep 32 digits.
+  function inferredGaps(wholeList, regionList = []) {
     if (!CONFIG.inferGaps?.on || !state.borders) return [];
-    const set = new Set(listed);
+    const whole = new Set(wholeList), regions = new Set(regionList);
     const out = [];
     for (const [iso, neighbours] of Object.entries(state.borders)) {
-      if (set.has(iso)) continue;
-      // dirs: 36 yes/no slots, one per 10° of direction from the country's centre, true where a listed
-      // border lies. (The file packs them into one number of up to 36 binary digits; they are unpacked by
-      // division because JavaScript's bit operators only keep 32 digits.)
+      if (whole.has(iso)) continue;
       let total = 0, shared = 0;
       const dirs = new Array(36).fill(false);
-      for (const [n, [len, bits]] of Object.entries(neighbours)) {
+      const mark = (bits) => { for (let i = 0; i < 36; i++) if (Math.floor(bits / 2 ** i) % 2) dirs[i] = true; };
+      for (const [n, [len, bits, parts]] of Object.entries(neighbours)) {
         total += len;
-        if (!set.has(n)) continue;
-        shared += len;
-        for (let i = 0; i < 36; i++) if (Math.floor(bits / 2 ** i) % 2) dirs[i] = true;
+        if (whole.has(n)) { shared += len; mark(bits); continue; }
+        let part = 0;
+        for (const [code, [l, b]] of Object.entries(parts ?? {})) if (regions.has(code)) { part += l; mark(b); }
+        shared += Math.min(part, len); // overlapping codes (a group and one of its members) never count twice
       }
       if (!total || shared / total < CONFIG.inferGaps.share) continue;
       let run = 0, widest = 0;
@@ -325,13 +330,14 @@ export function createCore(CONFIG, V) {
   const isStandout = (id) => CONFIG.standout?.ids?.includes(id);
 
   // Countries shaded as "less prevalent / likely" because they sit inside the type's area.
-  // Countries listed only by region count as neighbours, but are never filled in whole.
+  // Countries listed only by region count through those regions' stretches of border, and are never
+  // filled in whole.
   function gapsFor(type) {
     if (!type.inferGaps) return [];
     if (type._gaps) return type._gaps;
     const all = [...type.core, ...type.fringe];
     const partial = [...new Set(regionsOf(all).map(regionCountry).filter(Boolean))];
-    type._gaps = inferredGaps([...expandIso(all), ...partial]).filter((iso) => !partial.includes(iso));
+    type._gaps = inferredGaps(expandIso(all), regionsOf(all)).filter((iso) => !partial.includes(iso));
     return type._gaps;
   }
 

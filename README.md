@@ -31,9 +31,11 @@ published CSV, then reload the map. Nothing in this repository needs to change.
 - Row order in the sheet doesn't matter; types are matched by ID.
 - **Clicking a country** lists the hearths found in it that the filters let through (with a note of how many
   more the filters hide), including hearths listed only by one of its regions.
-- **Inferred gaps**: an unlisted country whose land border mostly (65%+) touches a type's listed countries, and
-  which they surround, is hatched too (e.g. Latvia between Estonia and Lithuania). Change or switch off under
-  `inferGaps` in `js/config.js`.
+- **Inferred gaps**: an unlisted country whose land border mostly (65%+) touches a type's listed areas, and
+  which they surround (no stretch wider than 150° without one), is hatched too (e.g. Latvia between Estonia and
+  Lithuania). A country listed only through some of its regions counts only for the stretches of border those
+  regions touch: Jammu and Kashmir does not make Bangladesh a gap, because it doesn't border it. Change or switch
+  off under `inferGaps` in `js/config.js`.
 - **Linked cases** (Types tab) is the only link between a hearth and its stories: only text that looks like a
   case ID (`W001`) is used; notes around it are ignored.
 - **Stories** (Cases tab): the story panel shows Case name, Place · Period, Story and Author. Other filled-in
@@ -145,7 +147,8 @@ or for one visit `…/atlas-of-warmth/?flat=equalearth`. It uses its own climate
 - `css/style.css` – styling (`css/print.css`, `css/upload.css` for the other pages)
 - `data/countries.geojson` – country borders (Natural Earth 1:50m, public domain), with `iso` codes
 - `data/labels.json` – a point inside every country and region, for placing name dots
-- `data/borders.json` – land-border lengths and directions between neighbours (for inferred gaps)
+- `data/borders.json` – land-border lengths and directions between neighbours, split by the neighbour's regions
+  (for inferred gaps); rebuild with `python3 tools/build_borders.py` after changing the country or region shapes
 - `data/styles.json` – style versions and fonts (written by the style panel)
 - `data/images.json` – image file names and sizes; `data/credits.json` – image credits (both written by the upload page)
 - `data/climate/` – climate underlay images and legend; `data/ocean.geojson` – sea drawn over them for crisp coasts
@@ -153,5 +156,5 @@ or for one visit `…/atlas-of-warmth/?flat=equalearth`. It uses its own climate
   rebuild with `tools/build_regions.py`
 - `images/` – one picture per type, named by its ID; `fonts/` – your own font files
 - `favicon.svg`, `favicon-32.png` – the tab icon
-- `tools/` – scripts that build the climate images and region shapes (not part of the site)
+- `tools/` – scripts that build the climate images, region shapes and border file (not part of the site)
 - `lib/` – MapLibre GL JS 6.18 (BSD licence) and Papa Parse 5.5 (MIT), kept here so the page has no outside dependencies apart from the sheet and Google Fonts
