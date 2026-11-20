@@ -38,7 +38,9 @@ published CSV, then reload the map. Nothing in this repository needs to change.
   case ID (`W001`) is used; notes around it are ignored.
 - **Stories** (Cases tab): the story panel shows Case name, Place · Period, Story and Author. Other filled-in
   Cases columns are listed below it, except those in `caseHiddenColumns` in `js/config.js`.
-- Link straight to a hearth by adding its ID to the address: `…/atlas-of-warmth/#T014`.
+- **Addresses**: every step has its own address, so Back and Forward move between them and any of them can be
+  bookmarked or shared: `…/atlas-of-warmth/#T014` (a hearth's card), `#T014/W001` (with one of its stories
+  open), `#LTU` (a country's list).
 
 ## When something goes wrong
 
@@ -76,7 +78,11 @@ GitHub won't show until that file lists it too.
 - For an image found elsewhere (the Google buttons open a search in a new tab), paste its link or the image
   itself into the *Paste here* field, and type its credit and source in the fields below.
 - **edit credit** changes the credit of an image already there; **remove** takes the image and its credit away.
-- The line at the top says whether everything is saved; anything that failed can be retried from there.
+- Each change is saved as **one commit**: an image together with its entry in `data/images.json` and its credit
+  (and the removal of any older version), a removal, or a credit edit. The line at the top says whether
+  everything is saved; anything that failed can be retried from there.
+- **Disconnect** (in the connection box, or in the top line once everything is saved) forgets the token in this
+  browser; paste it again next time. The style panel uses the same token.
 - The search box and *Only types without an image* only hide rows, so open searches and typed credits stay.
 
 Images are stored in colour and shown in greyscale on the page.

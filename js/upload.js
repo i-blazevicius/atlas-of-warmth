@@ -50,7 +50,7 @@ function showSaved() {
     el.className = 'up-saved err';
     return;
   }
-  el.textContent = state.token ? 'all changes saved' : '';
+  el.innerHTML = state.token ? 'all changes saved · <button type="button" class="link" data-disconnect>disconnect</button>' : '';
   el.className = 'up-saved ok';
 }
 document.addEventListener('click', (e) => {
@@ -157,47 +157,52 @@ async function loadCredits() {
     }
   } catch { state.credits = {}; }
 }
-// Read the latest file, change it, write it back (one commit).
-async function updateCredits(id, credit) {
-  let sha, data = {};
-  try {
-    const f = await gh(`/contents/${CREDITS_PATH}?ref=${GH.branch}&t=${Date.now()}`);
-    sha = f.sha; data = JSON.parse(base64ToText(f.content));
-  } catch { /* file does not exist yet */ }
-  if (credit) data[id] = credit; else delete data[id];
-  const sorted = Object.fromEntries(Object.keys(data).sort().map((k) => [k, data[k]]));
-  await gh(`/contents/${CREDITS_PATH}`, {
-    method: 'PUT',
-    body: JSON.stringify({
-      message: `${credit ? 'Credit' : 'Remove credit'} for ${id}`,
-      content: textToBase64(JSON.stringify(sorted, null, 2) + '\n'),
-      branch: GH.branch,
-      ...(sha ? { sha } : {}),
-    }),
-  });
-  state.credits = sorted;
+// ── Saving: one commit per change ──────────────────────────
+// Each change (an image with its size and credit, a removal, a credit edit) is saved as a single commit,
+// so the image, data/images.json and data/credits.json never get out of step, and the site rebuilds once.
+// GitHub's Git data API: new file contents (blobs) → a new file tree on top of the latest commit → a commit
+// → move the branch to it. If something else was committed in between, it starts again from the latest.
+//   files: { path: Blob or text to write, or null to delete }
+//   json:  { path: (latest contents) => new contents } for data files merged with their latest copy;
+//          a file whose contents do not change is left out.
+// Returns { blobs: { path: sha }, data: { path: new contents } }.
+const sortKeys = (o) => Object.fromEntries(Object.keys(o).sort().map((k) => [k, o[k]]));
+async function readJson(path, ref) {
+  try { return JSON.parse(base64ToText((await gh(`/contents/${path}?ref=${ref}`)).content)); }
+  catch (err) { if (/^404/.test(err.message)) return {}; throw err; }
 }
-// The image index (data/images.json): file name and size of every image, so the map can
-// leave the right space for an image before it has loaded.
-async function updateImageIndex(id, entry) {
-  const path = CONFIG.data.images;
-  let sha, data = {};
-  try {
-    const f = await gh(`/contents/${path}?ref=${GH.branch}&t=${Date.now()}`);
-    sha = f.sha; data = JSON.parse(base64ToText(f.content));
-  } catch { /* file does not exist yet */ }
-  if (entry) data[id] = entry; else delete data[id];
-  const sorted = Object.fromEntries(Object.keys(data).sort().map((k) => [k, data[k]]));
-  await gh(`/contents/${path}`, {
-    method: 'PUT',
-    body: JSON.stringify({
-      message: `${entry ? 'Index' : 'Unindex'} image ${id}`,
-      content: textToBase64(JSON.stringify(sorted, null, 2) + '\n'),
-      branch: GH.branch,
-      ...(sha ? { sha } : {}),
-    }),
-  });
+async function commit(message, { files = {}, json = {} } = {}) {
+  const blobs = {};
+  for (const [path, value] of Object.entries(files)) {
+    if (value === null) continue;
+    const content = value instanceof Blob ? await toBase64(value) : textToBase64(value);
+    blobs[path] = (await gh('/git/blobs', { method: 'POST', body: JSON.stringify({ content, encoding: 'base64' }) })).sha;
+  }
+  for (let attempt = 1; ; attempt++) {
+    const base = (await gh(`/git/ref/heads/${GH.branch}`)).object.sha;
+    const baseTree = (await gh(`/git/commits/${base}`)).tree.sha;
+    const tree = Object.entries(files).map(([path, value]) => ({ path, mode: '100644', type: 'blob', sha: value === null ? null : blobs[path] }));
+    const data = {};
+    for (const [path, change] of Object.entries(json)) {
+      const current = await readJson(path, base);
+      data[path] = sortKeys(change({ ...current }));
+      if (JSON.stringify(data[path]) !== JSON.stringify(sortKeys(current))) {
+        tree.push({ path, mode: '100644', type: 'blob', content: JSON.stringify(data[path], null, 2) + '\n' });
+      }
+    }
+    if (!tree.length) return { blobs, data };
+    const newTree = (await gh('/git/trees', { method: 'POST', body: JSON.stringify({ base_tree: baseTree, tree }) })).sha;
+    const created = (await gh('/git/commits', { method: 'POST', body: JSON.stringify({ message, tree: newTree, parents: [base] }) })).sha;
+    try {
+      await gh(`/git/refs/heads/${GH.branch}`, { method: 'PATCH', body: JSON.stringify({ sha: created, force: false }) });
+      return { blobs, data };
+    } catch (err) {
+      if (!/^422/.test(err.message) || attempt >= 3) throw err; // 422: the branch moved on meanwhile; try again
+    }
+  }
 }
+const withCredit = (id, credit) => (d) => { if (credit) d[id] = credit; else delete d[id]; return d; };
+
 const creditText = (c) => (!c ? '' : c.text ?? [c.author, c.licence].filter(Boolean).join(' · '));
 
 // ── Wikimedia Commons ──────────────────────────────────────
@@ -336,29 +341,6 @@ const toBase64 = (blob) => new Promise((resolve, reject) => {
   r.readAsDataURL(blob);
 });
 
-async function commitImage(id, blob) {
-  const name = `${id}.jpg`;
-  const old = state.existing.get(id) ?? [];
-  const same = old.find((f) => f.name === name);
-  const res = await gh(`/contents/${folder}/${name}`, {
-    method: 'PUT',
-    body: JSON.stringify({
-      message: `${same ? 'Replace' : 'Add'} image ${name}`,
-      content: await toBase64(blob),
-      branch: GH.branch,
-      ...(same ? { sha: same.sha } : {}),
-    }),
-  });
-  // Remove other versions (e.g. T014.png) so the new JPG is the one shown.
-  for (const f of old.filter((f) => f.name !== name)) {
-    await gh(`/contents/${folder}/${f.name}`, {
-      method: 'DELETE',
-      body: JSON.stringify({ message: `Remove old image ${f.name}`, sha: f.sha, branch: GH.branch }),
-    });
-  }
-  state.existing.set(id, [{ name, sha: res.content.sha }]);
-}
-
 // ── Image processing ───────────────────────────────────────
 async function shrink(file) {
   const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
@@ -406,10 +388,19 @@ function handleFile(id, file, credit = null) {
       if (thumb) thumb.innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="">`;
       if (state.token) {
         setStatus('saving…');
-        await commitImage(id, blob);
-        await updateImageIndex(id, { file: `${id}.jpg`, w, h });
-        setStatus('saving credit…');
-        await updateCredits(id, credit);
+        // The image, its entry in data/images.json and its credit (a new image without a credit drops the
+        // old image's credit), plus the removal of any older version (e.g. T014.png), in one commit.
+        const name = `${id}.jpg`;
+        const old = state.existing.get(id) ?? [];
+        const files = { [`${folder}/${name}`]: blob };
+        for (const f of old) if (f.name !== name) files[`${folder}/${f.name}`] = null;
+        const json = {
+          [CONFIG.data.images]: (d) => ({ ...d, [id]: { file: name, w, h } }),
+          ...(credit || state.credits[id] ? { [CREDITS_PATH]: withCredit(id, credit) } : {}),
+        };
+        const { blobs, data } = await commit(`${old.some((f) => f.name === name) ? 'Replace' : 'Add'} image ${name}`, { files, json });
+        state.existing.set(id, [{ name, sha: blobs[`${folder}/${name}`] }]);
+        if (data[CREDITS_PATH]) state.credits = data[CREDITS_PATH];
         setStatus(`saved · ${w}×${h} · ${kb} KB${credit ? '' : ' · no credit'}`, credit ? 'ok' : '');
         const cl = row?.querySelector('.up-credit');
         if (cl) cl.textContent = creditText(credit);
@@ -514,7 +505,8 @@ function saveCredit(item, text, source) {
   const credit = text ? { text, ...(link ? { source: link } : {}) } : null;
   enqueue(async () => {
     try {
-      await updateCredits(id, credit);
+      const { data } = await commit(`${credit ? 'Credit' : 'Remove credit'} for ${id}`, { json: { [CREDITS_PATH]: withCredit(id, credit) } });
+      state.credits = data[CREDITS_PATH];
       item.querySelector('.up-credit').textContent = creditText(credit);
       const typed = item.querySelector('.credit-input'); if (typed) typed.value = credit?.text ?? '';
       message(text ? `Credit saved for ${id}.` : `Credit removed for ${id}.`);
@@ -539,21 +531,23 @@ async function removeImage(id, button) {
     setTimeout(() => { if (button.isConnected) { button.dataset.armed = ''; button.textContent = 'remove'; button.classList.remove('armed'); } }, 4000);
     return;
   }
+  button.disabled = true;
+  removeNow(id, button);
+}
+// The image, its index entry and its credit go in one commit.
+function removeNow(id, button) {
   const row = button.closest('.up-item');
   const status = row.querySelector('.up-status');
-  button.disabled = true;
   enqueue(async () => {
     try {
       status.textContent = 'removing…'; status.className = 'up-status';
-      for (const f of state.existing.get(id) ?? []) {
-        await gh(`/contents/${folder}/${f.name}`, {
-          method: 'DELETE',
-          body: JSON.stringify({ message: `Remove image ${f.name}`, sha: f.sha, branch: GH.branch }),
-        });
-      }
+      const files = Object.fromEntries((state.existing.get(id) ?? []).map((f) => [`${folder}/${f.name}`, null]));
+      const { data } = await commit(`Remove image ${id}`, {
+        files,
+        json: { [CONFIG.data.images]: withCredit(id, null), ...(state.credits[id] ? { [CREDITS_PATH]: withCredit(id, null) } : {}) },
+      });
       state.existing.delete(id);
-      await updateImageIndex(id, null);
-      if (state.credits[id]) await updateCredits(id, null);
+      if (data[CREDITS_PATH]) state.credits = data[CREDITS_PATH];
       row.querySelector('.up-thumb').textContent = 'drop image';
       const cl = row.querySelector('.up-credit'); if (cl) cl.textContent = '';
       status.textContent = 'removed'; status.className = 'up-status ok';
@@ -565,7 +559,7 @@ async function removeImage(id, button) {
       button.disabled = false;
       return false;
     }
-  }, null, `removing ${id}`);
+  }, () => removeNow(id, button), `removing ${id}`);
 }
 
 // ── Picker ─────────────────────────────────────────────────
@@ -760,7 +754,13 @@ $('search').addEventListener('input', applyFilter);
 $('missing-only').addEventListener('change', applyFilter);
 $('connect-btn').addEventListener('click', () => { const t = $('token').value.trim(); if (t) connect(t); });
 $('token').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('connect-btn').click(); });
-$('disconnect').addEventListener('click', () => { setToken(null); state.token = null; showConnected(false); });
+// Disconnect: forget the token in this browser (the style panel uses the same one). Paste it again to save.
+function disconnect() {
+  if (state.pending && !confirm('Changes are still being saved. Disconnect anyway? They will not be saved.')) return;
+  setToken(null); state.token = null; showConnected(false);
+  message('Disconnected: the token is no longer stored in this browser. Paste it again to save.');
+}
+document.addEventListener('click', (e) => { if (e.target.closest('#disconnect, [data-disconnect]')) disconnect(); });
 
 (async () => {
   const saved = getToken();

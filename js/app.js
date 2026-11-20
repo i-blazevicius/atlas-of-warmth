@@ -463,7 +463,7 @@ async function select(id, { fly = true, name = null } = {}) {
   map.getSource('regions').setData(state.regionsGeo);
   renderType(type, state.nameIndex);
   closeStory();
-  history.replaceState(null, '', `#${id}`);
+  go(id);
 
   const regions = [
     ...(await regionFeatures(regionsOf(type.core), 'core')),
@@ -549,7 +549,6 @@ function clearSelection() {
   if (map.getSource('types')) refreshDots();
   $('panel').hidden = true;
   closeStory();
-  history.replaceState(null, '', location.pathname + location.search);
 }
 
 function renderType(t, nameIndex = -1, body = $('panel-body')) {
@@ -567,6 +566,7 @@ function showList(items) {
   if (state.selected) clearSelection();
   $('panel-body').innerHTML = `<p class="list-title">${items.length} hearths in this spot</p>${typeItems(items)}`;
   $('panel').hidden = false;
+  go('');
 }
 
 // Click on a country (or a region inside it): list the hearths found there that the filters let through.
@@ -590,6 +590,7 @@ function showCountry(iso, name) {
     ${section('Less prevalent / likely', less)}
     ${!wide.length && !less.length && !hidden ? '<p class="meta">No hearths recorded here yet.</p>' : ''}
     ${hidden ? `<p class="meta">${hidden} more hidden by the filters.</p>` : ''}`;
+  go(iso);
   $('panel').hidden = false;
   $('panel-body').scrollTop = 0;
 }
@@ -616,8 +617,40 @@ function openStory(cid) {
     <p class="meta">${esc(cid)}${Number.isFinite(lat) && Number.isFinite(lon) ? ` · ${latLon(lat, lon)}` : ''}</p>`;
   $('story').hidden = false;
   $('story-body').scrollTop = 0;
+  if (state.selected) go(`${state.selected}/${cid}`);
 }
 function closeStory() { $('story').hidden = true; }
+
+// ── Addresses and the Back button ──────────────────────────
+// Every step has its own address: #T014 (a hearth's card), #T014/W001 (with one of its stories open),
+// #LTU (a country's list); no address = nothing open. Each click adds a step to the browser's history,
+// so Back and Forward move between them, and any of these addresses can be bookmarked or shared.
+let restoring = false;    // true while the page follows Back/Forward (so no new steps are added)
+function go(hash) {
+  if (restoring) return;
+  const want = hash ? `#${hash}` : '';
+  if (location.hash === want) return;
+  history.pushState(null, '', want || location.pathname + location.search);
+}
+const countryName = (iso) => state.countriesGeo?.features.find((f) => f.properties.iso === iso)?.properties.name;
+// Open whatever the address points to.
+function route() {
+  const [id, cid] = decodeURIComponent(location.hash.slice(1)).split('/');
+  restoring = true;
+  try {
+    if (state.byId.has(id)) {
+      if (state.selected !== id || $('panel').hidden) select(id);
+      if (state.cases.has(cid)) openStory(cid); else closeStory();
+    } else if (countryName(id)) {
+      showCountry(id, countryName(id));
+    } else {
+      clearSelection();
+    }
+  } finally {
+    restoring = false;
+  }
+}
+window.addEventListener('popstate', route);
 
 // ── Climate underlay ───────────────────────────────────────
 const climate = { current: CONFIG.climate.start, opacity: CONFIG.climate.opacity, legend: null };
@@ -671,8 +704,8 @@ document.addEventListener('click', (e) => {
   if (t.dataset.case) openStory(t.dataset.case);
   if (t.dataset.type) select(t.dataset.type, { name: t.dataset.n !== undefined ? Number(t.dataset.n) : null });
   if (t.dataset.name !== undefined && state.selected) switchName(Number(t.dataset.name));
-  if (t.dataset.close === 'panel') clearSelection();
-  if (t.dataset.close === 'story') closeStory();
+  if (t.dataset.close === 'panel') { clearSelection(); go(''); }
+  if (t.dataset.close === 'story') { closeStory(); go(state.selected); }
 });
 function refilter() {
   refreshDots();
@@ -715,7 +748,7 @@ async function loadImageList() {
 }
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (!$('story').hidden) closeStory(); else clearSelection();
+  if (!$('story').hidden) { closeStory(); go(state.selected); } else { clearSelection(); go(''); }
 });
 
 // ── Start ──────────────────────────────────────────────────
@@ -760,10 +793,9 @@ async function start() {
       if (map.queryRenderedFeatures(e.point, { layers: ['points-hit'] }).length) return;
       const land = map.queryRenderedFeatures(e.point, { layers: ['land'] })[0];
       if (land) showCountry(land.properties.iso, land.properties.name);
-      else clearSelection();
+      else { clearSelection(); go(''); }
     });
-    const fromHash = decodeURIComponent(location.hash.slice(1));
-    if (fromHash && state.byId.has(fromHash)) select(fromHash);
+    if (location.hash) route(); // an address such as #T014, #T014/W001 or #LTU
   }
 }
 start();
