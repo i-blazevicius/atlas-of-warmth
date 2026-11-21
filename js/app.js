@@ -670,11 +670,13 @@ function applyClimate() {
   $('climate-title').textContent = layer.title;
   $('climate-low').textContent = layer.low;
   $('climate-high').textContent = layer.high;
-  $('climate-opacity').value = climate.opacity;
+  $('climate-opacity').value = climate.opacity; paintRange($('climate-opacity'));
   const stops = climate.legend?.[climate.current]?.stops;
   if (stops) $('climate-bar').style.background = `linear-gradient(to right, ${stops.map(([p, c]) => `${c} ${p * 100}%`).join(', ')})`;
 }
-$('climate-opacity').addEventListener('input', (e) => { climate.opacity = Number(e.target.value); applyClimate(); });
+// The filled part of a slider's line (see the range rules at the end of css/style.css).
+function paintRange(r) { r.style.setProperty('--p', `${((r.value - r.min) / ((r.max - r.min) || 1)) * 100}%`); }
+$('climate-opacity').addEventListener('input', (e) => { paintRange(e.target); climate.opacity = Number(e.target.value); applyClimate(); });
 
 // ── Controls ───────────────────────────────────────────────
 function syncControls() {

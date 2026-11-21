@@ -141,7 +141,7 @@ button { font: inherit; color: inherit; }
 .climate-bar { height: 8px; border-radius: 1px; }
 .climate-ends { display: flex; justify-content: space-between; color: var(--ink-faint); font-size: 10px; margin-top: 3px; }
 .climate-opacity { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--ink-faint); font-size: 10px; }
-.climate-opacity input { flex: 1; min-width: 0; width: 100%; margin: 0; accent-color: var(--accent); }
+.climate-opacity input { flex: 1; min-width: 0; width: 100%; margin: 0; }
 .credit {
   position: absolute; left: 16px; bottom: 10px; z-index: 2; margin: 0; max-width: 60vw;
   font-family: var(--font-ui); font-style: normal; font-size: 9.5px; color: var(--ink-faint);
@@ -285,3 +285,13 @@ button { font: inherit; color: inherit; }
 }
 
 .type-list + .list-title { margin-top: 22px; }
+
+/* Opacity sliders: a thin 2px line (filled in the accent colour up to the handle), a thicker upright handle */
+input[type="range"] { -webkit-appearance: none; appearance: none; height: 18px; margin: 0; padding: 0; background: transparent; cursor: pointer; --p: 100%; }
+input[type="range"]:focus { outline: none; }
+input[type="range"]:focus-visible { outline: 1px dotted var(--ink-faint); outline-offset: 2px; }
+input[type="range"]::-webkit-slider-runnable-track { height: 2px; background: linear-gradient(to right, var(--accent) var(--p), #888 var(--p)); border: 0; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 5px; height: 18px; margin-top: -8px; background: var(--ink); border: 0; border-radius: 0; }
+input[type="range"]::-moz-range-track { height: 2px; background: #888; border: 0; }
+input[type="range"]::-moz-range-progress { height: 2px; background: var(--accent); }
+input[type="range"]::-moz-range-thumb { width: 5px; height: 18px; background: var(--ink); border: 0; border-radius: 0; }
