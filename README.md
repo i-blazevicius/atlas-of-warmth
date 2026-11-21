@@ -153,7 +153,9 @@ or for one visit `…/atlas-of-warmth/?flat=equalearth`. It uses its own climate
 - `data/images.json` – image file names and sizes; `data/credits.json` – image credits (both written by the upload page)
 - `data/climate/` – climate underlay images and legend; `data/ocean.geojson` – sea drawn over them for crisp coasts
 - `data/regions/` – region shapes per country (Natural Earth admin-1, 1:10m, simplified), loaded only when needed;
-  rebuild with `tools/build_regions.py`
+  rebuild with `tools/build_regions.py`. Kenya is the exception: its 47 counties (`KE-01` to `KE-47`) come from
+  geoBoundaries (CC BY 4.0, geoboundaries.org; Natural Earth still has the old provinces); after rerunning
+  `build_regions.py`, rerun `tools/build_kenya_counties.py` and then `tools/build_borders.py`
 - `images/` – one picture per type, named by its ID; `fonts/` – your own font files
 - `favicon.svg`, `favicon-32.png` – the tab icon
 - `tools/` – scripts that build the climate images, region shapes and border file (not part of the site)
